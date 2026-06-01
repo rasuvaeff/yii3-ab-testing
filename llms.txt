@@ -1,0 +1,138 @@
+# yii3-ab-testing
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-ab-testing
+```
+
+## Rules
+
+- Experiment/variant names: `/^[a-z][a-z0-9_-]*$/`
+- Hash: `hexdec(substr(sha256(salt . ':' . subjectId), 0, 8))` — 32-bit unsigned
+- assign()/is() are pure — no auto-tracking
+- Disabled experiment → fallbackVariant
+- Forced variant must be in experiment's variant list
+- AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it
+- ExposureTracker/ConversionTracker default to no-op Null*; core di does NOT bind them
+
+## API
+
+### Experiment
+
+```php
+$exp = new Experiment(
+    name: 'checkout-button',
+    enabled: true,
+    salt: 'checkout-v1',
+    fallbackVariant: 'control',
+    variants: ['control' => 50, 'green' => 50],
+);
+```
+
+### ExperimentProvider (experiment source)
+
+```php
+// interface: getExperiments(): array<string, Experiment>
+$provider = new ConfigExperimentProvider(config: [
+    'checkout-button' => [
+        'enabled' => true,
+        'salt' => 'checkout-v1',
+        'fallbackVariant' => 'control',
+        'variants' => ['control' => 50, 'green' => 50],
+    ],
+]);
+// or a database-backed provider from yii3-ab-testing-db
+```
+
+### AbTesting facade
+
+```php
+$ab = new AbTesting(
+    provider: $provider,
+    strategy: new WeightedHashAssignmentStrategy(),
+    exposureTracker: new NullExposureTracker(),
+    conversionTracker: new NullConversionTracker(),
+);
+
+$assignment = $ab->assign(experiment: 'checkout-button', subjectId: $userId);
+$assignment->variant;       // 'control' or 'green'
+$assignment->isForced;      // false
+$assignment->isFallback;    // false
+
+$ab->is(experiment: 'checkout-button', variant: 'green', subjectId: $userId); // bool
+
+// Forced (QA):
+$ab->assign(experiment: 'checkout-button', subjectId: $userId, forcedVariant: 'green');
+
+// Tracking (explicit):
+$ab->trackExposure($assignment);
+$ab->trackConversion($assignment, goal: 'purchase');
+```
+
+### Assignment
+
+```php
+$a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
+$a->isVariant('green'); // true
+$a->isForced;            // false
+$a->isFallback;          // false
+$a->context;             // ?AssignmentContext (null unless passed to assign())
+```
+
+### AssignmentContext (optional)
+
+```php
+// Carried into Assignment for tracker attribution; does NOT affect variant choice.
+$ctx = AssignmentContext::forEnvironment('production')->withAttribute('country', 'DE');
+$assignment = $ab->assign(experiment: 'exp', subjectId: 'u1', context: $ctx);
+// getters: getEnvironment(), getAttributes(), getAttribute(name)
+// only assign() takes a context (is() does not)
+```
+
+### Trackers
+
+```php
+interface ExposureTracker {
+    public function trackExposure(Assignment $assignment): void;
+}
+
+interface ConversionTracker {
+    public function trackConversion(Assignment $assignment, string $goal): void;
+}
+```
+
+### Yii3 DI config
+
+Core `config/di.php` binds only `AbTesting` + `AssignmentStrategy`. It does NOT
+bind `ExperimentProvider` / `ExposureTracker` / `ConversionTracker` — one source
+owns each (app or backend), or `yiisoft/config` throws `Duplicate key`.
+
+Define experiments in app's `config/params.php`:
+
+```php
+return [
+    'rasuvaeff/yii3-ab-testing' => [
+        'experiments' => [
+            'checkout-button' => [
+                'enabled' => true,
+                'salt' => 'checkout-v1',
+                'fallbackVariant' => 'control',
+                'variants' => ['control' => 50, 'green' => 50],
+            ],
+        ],
+    ],
+];
+```
+
+Then bind the provider once in app `config/common/di/*.php` (or install
+`yii3-ab-testing-db`, which binds it for you):
+
+```php
+return [
+    ExperimentProvider::class => [
+        'class' => ConfigExperimentProvider::class,
+        '__construct()' => ['config' => $params['rasuvaeff/yii3-ab-testing']['experiments']],
+    ],
+];
+```
