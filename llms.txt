@@ -100,6 +100,22 @@ interface ExposureTracker {
 interface ConversionTracker {
     public function trackConversion(Assignment $assignment, string $goal): void;
 }
+
+// Fan one event out to several sinks (variadic). One source must own each
+// tracker key in di, so apps bind these in their own root-layer config.
+$exposure = new CompositeExposureTracker($trackerA, $trackerB);
+$conversion = new CompositeConversionTracker($trackerA, $trackerB);
+```
+
+### AssignmentStore (sticky variant, optional)
+
+```php
+// Pure contract (no HTTP). Pins a subject to a variant across weight changes.
+// Implementations: yii3-ab-testing-web (cookie/session). assign() stays pure.
+interface AssignmentStore {
+    public function get(string $experiment, string $subjectId): ?string;
+    public function put(string $experiment, string $subjectId, string $variant): void;
+}
 ```
 
 ### Yii3 DI config

@@ -13,7 +13,8 @@ Public API: `AbTesting` (facade), `Assignment`, `AssignmentContext`,
 `AssignmentStrategy`, `WeightedHashAssignmentStrategy`, `Experiment`,
 `ExperimentProvider`, `ConfigExperimentProvider`, `ExperimentRegistry`,
 `ExposureTracker`, `ConversionTracker`, `NullExposureTracker`,
-`NullConversionTracker`.
+`NullConversionTracker`, `CompositeExposureTracker`, `CompositeConversionTracker`,
+`AssignmentStore` (sticky-variant contract; implementations ship in adapters).
 
 DI wiring (mirror of `yii3-feature-flags`): core `config/di.php` binds **only**
 `AbTesting` (facade) and `AssignmentStrategy` (the single

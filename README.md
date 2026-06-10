@@ -180,8 +180,39 @@ return [
 
 Bind each interface from a **single** source. Installing two adapters that both
 bind `ExposureTracker` (or a backend plus a manual binding) reintroduces a
-`yiisoft/config` `Duplicate key` conflict — pick one, or compose them with your
-own fan-out tracker bound in the application.
+`yiisoft/config` `Duplicate key` conflict — pick one, or compose them with the
+built-in `CompositeExposureTracker` / `CompositeConversionTracker`, bound once in
+your own app config:
+
+```php
+use Rasuvaeff\Yii3AbTesting\CompositeExposureTracker;
+use Rasuvaeff\Yii3AbTesting\ExposureTracker;
+
+return [
+    ExposureTracker::class => static fn (): ExposureTracker => new CompositeExposureTracker(
+        new ClickHouseExposureTracker(/* ... */),
+        new LoggerExposureTracker(/* ... */),
+    ),
+];
+```
+
+### Sticky variants (optional)
+
+Deterministic assignment keeps a subject in the same variant only while weights
+are stable; changing weights or the variant set shifts bucket boundaries and
+reshuffles subjects. To pin a subject to a variant across such changes, persist
+the assignment through an `AssignmentStore`:
+
+```php
+interface AssignmentStore {
+    public function get(string $experiment, string $subjectId): ?string;
+    public function put(string $experiment, string $subjectId, string $variant): void;
+}
+```
+
+`AbTesting::assign()` stays pure — sticky resolution is a separate layer.
+Cookie/session implementations and a `SubjectIdMiddleware` for stable anonymous
+identity ship in `yii3-ab-testing-web`.
 
 ## Assignment algorithm
 
