@@ -15,6 +15,9 @@ composer require rasuvaeff/yii3-ab-testing
 - Forced variant must be in experiment's variant list
 - AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it
 - ExposureTracker/ConversionTracker default to no-op Null*; core di does NOT bind them
+- Unknown experiment → InvalidExperimentException; unknown forced variant → InvalidVariantException
+- ExperimentRegistry is lazy: provider queried on first access, memoized; reset() re-reads (worker runtimes)
+- Requires 64-bit PHP (hash bucket exceeds PHP_INT_MAX on 32-bit)
 
 ## API
 
@@ -77,7 +80,18 @@ $a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
 $a->isVariant('green'); // true
 $a->isForced;            // false
 $a->isFallback;          // false
+$a->isSticky;            // false (true when served from an AssignmentStore)
 $a->context;             // ?AssignmentContext (null unless passed to assign())
+```
+
+### ExperimentRegistry
+
+```php
+$registry = $ab->getRegistry();
+$registry->get('checkout-button'); // Experiment, throws InvalidExperimentException if unknown
+$registry->has('checkout-button'); // bool
+$registry->all();                  // array<string, Experiment>
+$registry->reset();                // drop memo; provider re-read on next access
 ```
 
 ### AssignmentContext (optional)
@@ -101,8 +115,15 @@ interface ConversionTracker {
     public function trackConversion(Assignment $assignment, string $goal): void;
 }
 
+// Buffering sinks (e.g. ClickHouse adapter) implement FlushableTracker;
+// call flush() once at request end.
+interface FlushableTracker {
+    public function flush(): void;
+}
+
 // Fan one event out to several sinks (variadic). One source must own each
 // tracker key in di, so apps bind these in their own root-layer config.
+// Composites implement FlushableTracker and propagate flush() to flushable inners.
 $exposure = new CompositeExposureTracker($trackerA, $trackerB);
 $conversion = new CompositeConversionTracker($trackerA, $trackerB);
 ```

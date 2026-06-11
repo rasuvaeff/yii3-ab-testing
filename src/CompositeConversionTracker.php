@@ -13,7 +13,7 @@ namespace Rasuvaeff\Yii3AbTesting;
  *
  * @api
  */
-final readonly class CompositeConversionTracker implements ConversionTracker
+final readonly class CompositeConversionTracker implements ConversionTracker, FlushableTracker
 {
     /**
      * @var array<array-key, ConversionTracker>
@@ -30,6 +30,16 @@ final readonly class CompositeConversionTracker implements ConversionTracker
     {
         foreach ($this->trackers as $tracker) {
             $tracker->trackConversion($assignment, goal: $goal);
+        }
+    }
+
+    #[\Override]
+    public function flush(): void
+    {
+        foreach ($this->trackers as $tracker) {
+            if ($tracker instanceof FlushableTracker) {
+                $tracker->flush();
+            }
         }
     }
 }

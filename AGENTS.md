@@ -12,7 +12,8 @@ Namespace: `Rasuvaeff\Yii3AbTesting`.
 Public API: `AbTesting` (facade), `Assignment`, `AssignmentContext`,
 `AssignmentStrategy`, `WeightedHashAssignmentStrategy`, `Experiment`,
 `ExperimentProvider`, `ConfigExperimentProvider`, `ExperimentRegistry`,
-`ExposureTracker`, `ConversionTracker`, `NullExposureTracker`,
+`ExposureTracker`, `ConversionTracker`, `FlushableTracker` (buffered-sink flush
+contract; composites propagate it), `NullExposureTracker`,
 `NullConversionTracker`, `CompositeExposureTracker`, `CompositeConversionTracker`,
 `AssignmentStore` (sticky-variant contract; implementations ship in adapters).
 
@@ -74,7 +75,17 @@ make release-check
 ## Invariants & gotchas
 
 - Experiment/variant name regex: `/^[a-z][a-z0-9_-]*$/`.
-- `fallbackVariant` must exist in `variants`. Total weight > 0.
+- `fallbackVariant` must exist in `variants`. Total weight > 0 — `Experiment`
+  validates it, and `WeightedHashAssignmentStrategy` independently throws
+  `InvalidArgumentException` when called directly with total weight <= 0.
+- `ExperimentRegistry` is lazy: the provider is queried on first access and
+  memoized; `reset()` drops the memo. Core `config/di.php` registers a `reset`
+  hook (yiisoft/di `StateResetter`) so worker runtimes (RoadRunner, Swoole)
+  re-read the provider per request — without it the enabled kill switch would be
+  frozen for the worker's lifetime.
+- `Assignment::isSticky` marks an assignment served from an `AssignmentStore`
+  (set by sticky resolvers in adapters); `assign()` itself never sets it.
+- 64-bit PHP only: the 8-hex-digit bucket exceeds `PHP_INT_MAX` on 32-bit.
 - Disabled experiment returns `fallbackVariant` with `isFallback = true`.
 - Forced variant must be in experiment's variant list.
 - Variants sorted by key before cumulative weight calculation.

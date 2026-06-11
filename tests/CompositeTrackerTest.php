@@ -12,6 +12,7 @@ use Rasuvaeff\Yii3AbTesting\CompositeConversionTracker;
 use Rasuvaeff\Yii3AbTesting\CompositeExposureTracker;
 use Rasuvaeff\Yii3AbTesting\ConversionTracker;
 use Rasuvaeff\Yii3AbTesting\ExposureTracker;
+use Rasuvaeff\Yii3AbTesting\FlushableTracker;
 
 #[CoversClass(CompositeExposureTracker::class)]
 #[CoversClass(CompositeConversionTracker::class)]
@@ -65,6 +66,70 @@ final class CompositeTrackerTest extends TestCase
         $this->expectNotToPerformAssertions();
 
         $composite->trackConversion($assignment, goal: 'purchase');
+    }
+
+    #[Test]
+    public function exposureFlushReachesOnlyFlushableTrackers(): void
+    {
+        $plain = $this->recordingExposure('plain');
+        $flushable = $this->flushableExposure();
+        $composite = new CompositeExposureTracker($plain, $flushable);
+
+        $composite->flush();
+
+        $this->assertSame(1, $flushable->flushes);
+        $this->assertSame([], $plain->calls);
+    }
+
+    #[Test]
+    public function conversionFlushReachesOnlyFlushableTrackers(): void
+    {
+        $plain = $this->recordingConversion('plain');
+        $flushable = $this->flushableConversion();
+        $composite = new CompositeConversionTracker($plain, $flushable);
+
+        $composite->flush();
+
+        $this->assertSame(1, $flushable->flushes);
+        $this->assertSame([], $plain->calls);
+    }
+
+    /**
+     * @return ExposureTracker&FlushableTracker&object{flushes: int}
+     */
+    private function flushableExposure(): ExposureTracker&FlushableTracker
+    {
+        return new class implements ExposureTracker, FlushableTracker {
+            public int $flushes = 0;
+
+            #[\Override]
+            public function trackExposure(Assignment $assignment): void {}
+
+            #[\Override]
+            public function flush(): void
+            {
+                ++$this->flushes;
+            }
+        };
+    }
+
+    /**
+     * @return ConversionTracker&FlushableTracker&object{flushes: int}
+     */
+    private function flushableConversion(): ConversionTracker&FlushableTracker
+    {
+        return new class implements ConversionTracker, FlushableTracker {
+            public int $flushes = 0;
+
+            #[\Override]
+            public function trackConversion(Assignment $assignment, string $goal): void {}
+
+            #[\Override]
+            public function flush(): void
+            {
+                ++$this->flushes;
+            }
+        };
     }
 
     /**

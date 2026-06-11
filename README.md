@@ -16,7 +16,7 @@ variants, forced variant for QA, explicit exposure/conversion tracking.
 
 ## Requirements
 
-- PHP 8.3+
+- PHP 8.3+ (64-bit — the hash bucket exceeds `PHP_INT_MAX` on 32-bit builds)
 
 ## Installation
 
@@ -66,6 +66,13 @@ if ($ab->is(experiment: 'checkout-button', variant: 'green', subjectId: (string)
     // Variant-specific logic.
 }
 ```
+
+Assigning an experiment that is not defined throws
+`Exception\InvalidExperimentException`; forcing a variant the experiment does not
+have throws `Exception\InvalidVariantException`. The loaded experiment set is
+inspectable via `$ab->getRegistry()` — an `ExperimentRegistry` with `get()`,
+`has()`, `all()` and `reset()`. The registry is lazy: the `ExperimentProvider` is
+queried on first access and memoized afterwards.
 
 ### Forced variant (QA)
 
@@ -196,6 +203,19 @@ return [
 ];
 ```
 
+Trackers that buffer events (e.g. the ClickHouse adapter) implement
+`FlushableTracker`; call `flush()` once at request end. The composite trackers
+implement it too and propagate the flush to every flushable inner tracker, so the
+application can flush through the bound tracker interface:
+
+```php
+use Rasuvaeff\Yii3AbTesting\FlushableTracker;
+
+if ($tracker instanceof FlushableTracker) {
+    $tracker->flush();
+}
+```
+
 ### Sticky variants (optional)
 
 Deterministic assignment keeps a subject in the same variant only while weights
@@ -212,7 +232,18 @@ interface AssignmentStore {
 
 `AbTesting::assign()` stays pure — sticky resolution is a separate layer.
 Cookie/session implementations and a `SubjectIdMiddleware` for stable anonymous
-identity ship in `yii3-ab-testing-web`.
+identity ship in `yii3-ab-testing-web`. An assignment served from a store carries
+`isSticky = true` so trackers can tell it apart from a fresh deterministic one.
+
+### Worker runtimes (RoadRunner, Swoole)
+
+The experiment set is memoized per `ExperimentRegistry` instance. In a
+long-running worker the `AbTesting` service survives across requests, so the
+core's `config/di.php` registers a `reset` hook for `yiisoft/di`'s
+`StateResetter`: runtimes that reset container state between requests re-read the
+`ExperimentProvider` on the next request, and a kill switch flipped in the source
+takes effect without a worker restart. In classic PHP-FPM nothing changes — the
+service is rebuilt per request anyway.
 
 ## Assignment algorithm
 

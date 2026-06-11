@@ -161,6 +161,15 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
     }
 
     #[Test]
+    public function throwsOnZeroTotalWeight(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Total variant weight must be greater than 0');
+
+        $this->strategy->assign(salt: 'test', subjectId: 'u1', variants: ['a' => 0, 'b' => 0]);
+    }
+
+    #[Test]
     public function weightedDistributionWithUnequalWeights(): void
     {
         $variants = ['control' => 90, 'experiment' => 10];
