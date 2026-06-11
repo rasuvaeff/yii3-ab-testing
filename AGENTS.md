@@ -14,7 +14,8 @@ Public API: `AbTesting` (facade), `Assignment`, `AssignmentContext`,
 `ExperimentProvider`, `ConfigExperimentProvider`, `ExperimentRegistry`,
 `ExposureTracker`, `ConversionTracker`, `FlushableTracker` (buffered-sink flush
 contract; composites propagate it), `NullExposureTracker`,
-`NullConversionTracker`, `CompositeExposureTracker`, `CompositeConversionTracker`,
+`NullConversionTracker`, `LoggerExposureTracker`, `LoggerConversionTracker`
+(built-in PSR-3 sinks), `CompositeExposureTracker`, `CompositeConversionTracker`,
 `AssignmentStore` (sticky-variant contract; implementations ship in adapters).
 
 DI wiring (mirror of `yii3-feature-flags`): core `config/di.php` binds **only**
@@ -27,8 +28,8 @@ DI wiring (mirror of `yii3-feature-flags`): core `config/di.php` binds **only**
   (`yii3-ab-testing-db`). `AbTesting` builds `ExperimentRegistry` internally from
   the injected provider — `ExperimentRegistry` is not a DI key.
 - `ExposureTracker` / `ConversionTracker` — the event **sinks**, optional. Default
-  to no-op `Null*` via constructor defaults; a tracker adapter (`-psr-logger`,
-  `-clickhouse`, `-opentelemetry`) or the app binds them.
+  to no-op `Null*` via constructor defaults. Built-in `Logger*` (PSR-3) sinks ship
+  in core but are not bound; a tracker adapter (`-clickhouse`) or the app binds them.
 
 Two vendor packages binding the same key (`ExperimentProvider` or a tracker) in
 the `di` group trigger a `yiisoft/config` `Duplicate key` error — by design.

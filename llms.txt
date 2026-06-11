@@ -14,7 +14,7 @@ composer require rasuvaeff/yii3-ab-testing
 - Disabled experiment → fallbackVariant
 - Forced variant must be in experiment's variant list
 - AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it
-- ExposureTracker/ConversionTracker default to no-op Null*; core di does NOT bind them
+- ExposureTracker/ConversionTracker default to no-op Null*; core di does NOT bind them. Built-in sinks: Logger* (PSR-3), Null*; bind one in app config
 - Unknown experiment → InvalidExperimentException; unknown forced variant → InvalidVariantException
 - ExperimentRegistry is lazy: provider queried on first access, memoized; reset() re-reads (worker runtimes)
 - Requires 64-bit PHP (hash bucket exceeds PHP_INT_MAX on 32-bit)
@@ -114,6 +114,12 @@ interface ExposureTracker {
 interface ConversionTracker {
     public function trackConversion(Assignment $assignment, string $goal): void;
 }
+
+// Built-in sinks (bind one in app config — core di binds none):
+//   NullExposureTracker / NullConversionTracker     — no-op defaults
+//   LoggerExposureTracker / LoggerConversionTracker — one structured PSR-3 record
+//     per event; ctor(LoggerInterface $logger, string $level = LogLevel::INFO)
+$exposure = new LoggerExposureTracker($psrLogger);
 
 // Buffering sinks (e.g. ClickHouse adapter) implement FlushableTracker;
 // call flush() once at request end.
