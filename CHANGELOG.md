@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.3.0 — 2026-06-11
+
+- `LoggerExposureTracker` / `LoggerConversionTracker` — default zero-infra sinks that write each event as one structured PSR-3 log record (log level configurable). Folded in from the former `yii3-ab-testing-psr-logger` adapter. Core `config/di.php` does not bind them (one-source rule); bind them in app config. Adds `psr/log` as a runtime dependency.
+
 ## 1.2.0 — 2026-06-11
 
 - `FlushableTracker` interface for buffered sinks; `CompositeExposureTracker` and `CompositeConversionTracker` implement it and propagate `flush()` to flushable inner trackers.

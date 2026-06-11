@@ -185,6 +185,22 @@ return [
 ];
 ```
 
+Two ready-made sinks ship in core: `LoggerExposureTracker` /
+`LoggerConversionTracker` write each event as one structured PSR-3 log record
+(zero infrastructure, log level configurable). Like every tracker they are not
+bound by core `config/di.php` (one-source rule) — bind them in your app config:
+
+```php
+use Psr\Log\LoggerInterface;
+use Rasuvaeff\Yii3AbTesting\ExposureTracker;
+use Rasuvaeff\Yii3AbTesting\LoggerExposureTracker;
+
+return [
+    ExposureTracker::class => static fn (LoggerInterface $logger): ExposureTracker
+        => new LoggerExposureTracker($logger),
+];
+```
+
 Bind each interface from a **single** source. Installing two adapters that both
 bind `ExposureTracker` (or a backend plus a manual binding) reintroduces a
 `yiisoft/config` `Duplicate key` conflict — pick one, or compose them with the
