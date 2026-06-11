@@ -16,6 +16,7 @@ final readonly class Assignment
         public bool $isForced = false,
         public bool $isFallback = false,
         public ?AssignmentContext $context = null,
+        public bool $isSticky = false,
     ) {}
 
     public function isVariant(string $variant): bool

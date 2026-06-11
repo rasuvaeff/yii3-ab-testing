@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.2.0 — 2026-06-11
+
+- `FlushableTracker` interface for buffered sinks; `CompositeExposureTracker` and `CompositeConversionTracker` implement it and propagate `flush()` to flushable inner trackers.
+- `Assignment::isSticky` flag — set by sticky resolvers (adapters) when an assignment is served from an `AssignmentStore`.
+- `ExperimentRegistry` is now lazy: the provider is queried on first access and memoized; new `reset()` re-reads it. Core `config/di.php` registers a `reset` hook for `yiisoft/di` `StateResetter`, so in worker runtimes (RoadRunner, Swoole) a kill switch flipped in the experiment source takes effect on the next request instead of after a worker restart.
+- `WeightedHashAssignmentStrategy` throws `InvalidArgumentException` when called directly with a total variant weight of 0 (previously `DivisionByZeroError`); the `AssignmentStrategy` contract now documents the requirement.
+- Documented the 64-bit PHP requirement of the hash bucketing.
+
 ## 1.1.0 — 2026-06-10
 
 - `CompositeExposureTracker` and `CompositeConversionTracker` (variadic) to fan a single event out to several sinks; applications bind them in their own root-layer config.

@@ -13,7 +13,7 @@ namespace Rasuvaeff\Yii3AbTesting;
  *
  * @api
  */
-final readonly class CompositeExposureTracker implements ExposureTracker
+final readonly class CompositeExposureTracker implements ExposureTracker, FlushableTracker
 {
     /**
      * @var array<array-key, ExposureTracker>
@@ -30,6 +30,16 @@ final readonly class CompositeExposureTracker implements ExposureTracker
     {
         foreach ($this->trackers as $tracker) {
             $tracker->trackExposure($assignment);
+        }
+    }
+
+    #[\Override]
+    public function flush(): void
+    {
+        foreach ($this->trackers as $tracker) {
+            if ($tracker instanceof FlushableTracker) {
+                $tracker->flush();
+            }
         }
     }
 }

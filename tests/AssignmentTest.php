@@ -36,6 +36,15 @@ final class AssignmentTest extends TestCase
 
         $this->assertFalse($a->isForced);
         $this->assertFalse($a->isFallback);
+        $this->assertFalse($a->isSticky);
+    }
+
+    #[Test]
+    public function stickyFlagIsSet(): void
+    {
+        $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isSticky: true);
+
+        $this->assertTrue($a->isSticky);
     }
 
     #[Test]

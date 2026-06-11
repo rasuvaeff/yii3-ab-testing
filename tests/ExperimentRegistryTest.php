@@ -92,4 +92,65 @@ final class ExperimentRegistryTest extends TestCase
 
         $this->assertCount(2, $registry->all());
     }
+
+    #[Test]
+    public function providerIsNotQueriedUntilFirstAccess(): void
+    {
+        $provider = $this->countingProvider();
+        new ExperimentRegistry(provider: $provider);
+
+        $this->assertSame(0, $provider->calls);
+    }
+
+    #[Test]
+    public function providerIsQueriedOnceAcrossAccesses(): void
+    {
+        $provider = $this->countingProvider();
+        $registry = new ExperimentRegistry(provider: $provider);
+
+        $registry->all();
+        $registry->has('test');
+        $registry->get('test');
+
+        $this->assertSame(1, $provider->calls);
+    }
+
+    #[Test]
+    public function resetRereadsProvider(): void
+    {
+        $provider = $this->countingProvider();
+        $registry = new ExperimentRegistry(provider: $provider);
+
+        $registry->all();
+        $registry->reset();
+        $registry->all();
+
+        $this->assertSame(2, $provider->calls);
+    }
+
+    /**
+     * @return ExperimentProvider&object{calls: int}
+     */
+    private function countingProvider(): ExperimentProvider
+    {
+        return new class implements ExperimentProvider {
+            public int $calls = 0;
+
+            #[\Override]
+            public function getExperiments(): array
+            {
+                ++$this->calls;
+
+                return [
+                    'test' => new Experiment(
+                        name: 'test',
+                        enabled: true,
+                        salt: 'salt',
+                        fallbackVariant: 'a',
+                        variants: ['a' => 100],
+                    ),
+                ];
+            }
+        };
+    }
 }
