@@ -30,7 +30,22 @@ $exp = new Experiment(
     salt: 'checkout-v1',
     fallbackVariant: 'control',
     variants: ['control' => 50, 'green' => 50],
+    targeting: null, // optional TargetingRule; null = no restriction
 );
+
+// Targeting rules: restrict experiment to a subset of subjects.
+// Subjects that don't match get fallbackVariant with isFallback=true, isTargetingMismatch=true.
+// forcedVariant bypasses targeting. Disabled experiment check runs before targeting.
+use Rasuvaeff\Yii3AbTesting\EnvironmentTargetingRule;
+use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
+use Rasuvaeff\Yii3AbTesting\AndTargetingRule;
+use Rasuvaeff\Yii3AbTesting\OrTargetingRule;
+
+$targeting = new AndTargetingRule(rules: [
+    new EnvironmentTargetingRule(environments: ['production']),
+    new AttributeTargetingRule(attribute: 'plan', value: 'pro'),
+]);
+// OrTargetingRule: any rule matches. Empty rules list throws InvalidArgumentException.
 ```
 
 ### ExperimentProvider (experiment source)
@@ -77,11 +92,12 @@ $ab->trackConversion($assignment, goal: 'purchase');
 
 ```php
 $a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
-$a->isVariant('green'); // true
-$a->isForced;            // false
-$a->isFallback;          // false
-$a->isSticky;            // false (true when served from an AssignmentStore)
-$a->context;             // ?AssignmentContext (null unless passed to assign())
+$a->isVariant('green');       // true
+$a->isForced;                  // false
+$a->isFallback;                // false
+$a->isSticky;                  // false (true when served from an AssignmentStore)
+$a->isTargetingMismatch;       // false (true when subject excluded by TargetingRule)
+$a->context;                   // ?AssignmentContext (null unless passed to assign())
 ```
 
 ### ExperimentRegistry

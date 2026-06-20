@@ -31,6 +31,7 @@ final readonly class Experiment
         string $salt,
         string $fallbackVariant,
         array $variants,
+        public readonly ?TargetingRule $targeting = null,
     ) {
         $this->validateName($name, 'experiment');
 

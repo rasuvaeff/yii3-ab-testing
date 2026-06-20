@@ -232,6 +232,51 @@ if ($tracker instanceof FlushableTracker) {
 }
 ```
 
+### Targeting (optional)
+
+Restrict an experiment to a subset of subjects by attaching a `TargetingRule`.
+Subjects that don't match receive the fallback variant with `isFallback === true`
+and `isTargetingMismatch === true`. `forcedVariant` bypasses targeting.
+
+```php
+use Rasuvaeff\Yii3AbTesting\AndTargetingRule;
+use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
+use Rasuvaeff\Yii3AbTesting\EnvironmentTargetingRule;
+use Rasuvaeff\Yii3AbTesting\Experiment;
+use Rasuvaeff\Yii3AbTesting\OrTargetingRule;
+
+$experiment = new Experiment(
+    name: 'checkout',
+    enabled: true,
+    salt: 'checkout-v1',
+    fallbackVariant: 'control',
+    variants: ['control' => 50, 'green' => 50],
+    targeting: new AndTargetingRule(rules: [
+        new EnvironmentTargetingRule(environments: ['production']),
+        new AttributeTargetingRule(attribute: 'plan', value: 'pro'),
+    ]),
+);
+
+$assignment = $abTesting->assign(
+    experiment: 'checkout',
+    subjectId: $userId,
+    context: new AssignmentContext(environment: 'production', attributes: ['plan' => 'pro']),
+);
+
+if ($assignment->isTargetingMismatch) {
+    // subject not in target segment — received fallback
+}
+```
+
+Available built-in rules:
+
+| Class | Matches when |
+|---|---|
+| `EnvironmentTargetingRule` | `context->getEnvironment()` is in the given list |
+| `AttributeTargetingRule` | `context->getAttribute($name) === $value` (strict) |
+| `AndTargetingRule` | all nested rules match (short-circuit) |
+| `OrTargetingRule` | at least one nested rule matches (short-circuit) |
+
 ### Sticky variants (optional)
 
 Deterministic assignment keeps a subject in the same variant only while weights

@@ -10,9 +10,13 @@ use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
+use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\ConversionTracker;
+use Rasuvaeff\Yii3AbTesting\EnvironmentTargetingRule;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidVariantException;
+use Rasuvaeff\Yii3AbTesting\Experiment;
+use Rasuvaeff\Yii3AbTesting\ExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\ExposureTracker;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
 
@@ -243,5 +247,132 @@ final class AbTestingTest extends TestCase
         $assignment = $ab->assign(experiment: 'disabled-test', subjectId: 'user-1', context: $context);
 
         $this->assertSame($context, $assignment->context);
+    }
+
+    #[Test]
+    public function targetingMismatchReturnsFallbackWithFlag(): void
+    {
+        $ab = $this->abTestingWithTargeting(
+            new EnvironmentTargetingRule(environments: ['production']),
+        );
+        $context = AssignmentContext::forEnvironment('staging');
+
+        $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
+
+        $this->assertSame('control', $assignment->variant);
+        $this->assertTrue($assignment->isFallback);
+        $this->assertTrue($assignment->isTargetingMismatch);
+    }
+
+    #[Test]
+    public function targetingMatchProceedsToNormalAssignment(): void
+    {
+        $ab = $this->abTestingWithTargeting(
+            new EnvironmentTargetingRule(environments: ['production']),
+        );
+        $context = AssignmentContext::forEnvironment('production');
+
+        $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
+
+        $this->assertFalse($assignment->isFallback);
+        $this->assertFalse($assignment->isTargetingMismatch);
+        $this->assertContains($assignment->variant, ['control', 'green']);
+    }
+
+    #[Test]
+    public function noTargetingAssignsAllSubjects(): void
+    {
+        $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
+
+        $this->assertFalse($assignment->isFallback);
+        $this->assertFalse($assignment->isTargetingMismatch);
+    }
+
+    #[Test]
+    public function forcedVariantBypassesTargeting(): void
+    {
+        $ab = $this->abTestingWithTargeting(
+            new EnvironmentTargetingRule(environments: ['production']),
+        );
+        $context = AssignmentContext::forEnvironment('staging');
+
+        $assignment = $ab->assign(
+            experiment: 'targeted',
+            subjectId: 'user-1',
+            forcedVariant: 'green',
+            context: $context,
+        );
+
+        $this->assertSame('green', $assignment->variant);
+        $this->assertTrue($assignment->isForced);
+        $this->assertFalse($assignment->isTargetingMismatch);
+    }
+
+    #[Test]
+    public function disabledExperimentBypassesTargetingCheck(): void
+    {
+        $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
+        $provider = new class ($rule) implements ExperimentProvider {
+            public function __construct(private readonly AttributeTargetingRule $rule) {}
+
+            #[\Override]
+            public function getExperiments(): array
+            {
+                return [
+                    'targeted' => new Experiment(
+                        name: 'targeted',
+                        enabled: false,
+                        salt: 'salt',
+                        fallbackVariant: 'control',
+                        variants: ['control' => 50, 'green' => 50],
+                        targeting: $this->rule,
+                    ),
+                ];
+            }
+        };
+        $ab = new AbTesting(provider: $provider, strategy: new WeightedHashAssignmentStrategy());
+
+        $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1');
+
+        $this->assertTrue($assignment->isFallback);
+        $this->assertFalse($assignment->isTargetingMismatch);
+    }
+
+    #[Test]
+    public function targetingMismatchCarriesContext(): void
+    {
+        $ab = $this->abTestingWithTargeting(
+            new EnvironmentTargetingRule(environments: ['production']),
+        );
+        $context = AssignmentContext::forEnvironment('staging');
+
+        $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
+
+        $this->assertSame($context, $assignment->context);
+    }
+
+    private function abTestingWithTargeting(
+        \Rasuvaeff\Yii3AbTesting\TargetingRule $targeting,
+    ): AbTesting {
+        $provider = new class ($targeting) implements ExperimentProvider {
+            public function __construct(private readonly \Rasuvaeff\Yii3AbTesting\TargetingRule $targeting) {}
+
+            #[\Override]
+            public function getExperiments(): array
+            {
+                return [
+                    'targeted' => new Experiment(
+                        name: 'targeted',
+                        enabled: true,
+                        salt: 'salt',
+                        fallbackVariant: 'control',
+                        variants: ['control' => 50, 'green' => 50],
+                        targeting: $this->targeting,
+                    ),
+                ];
+            }
+        };
+
+        return new AbTesting(provider: $provider, strategy: new WeightedHashAssignmentStrategy());
     }
 }

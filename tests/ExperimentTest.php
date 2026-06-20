@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidExperimentException;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidVariantException;
 use Rasuvaeff\Yii3AbTesting\Experiment;
@@ -137,6 +138,36 @@ final class ExperimentTest extends TestCase
             fallbackVariant: 'a',
             variants: ['a' => 0, 'b' => 0],
         );
+    }
+
+    #[Test]
+    public function targetingIsNullByDefault(): void
+    {
+        $exp = new Experiment(
+            name: 'test',
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: ['a' => 100],
+        );
+
+        $this->assertNull($exp->targeting);
+    }
+
+    #[Test]
+    public function acceptsTargetingRule(): void
+    {
+        $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
+        $exp = new Experiment(
+            name: 'test',
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: ['a' => 100],
+            targeting: $rule,
+        );
+
+        $this->assertSame($rule, $exp->targeting);
     }
 
     /**
