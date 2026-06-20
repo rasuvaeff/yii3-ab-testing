@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.4.0 — 2026-06-20
+
+- `TargetingRule` interface + 4 implementations: `EnvironmentTargetingRule`,
+  `AttributeTargetingRule`, `AndTargetingRule`, `OrTargetingRule`.
+- `Experiment` now accepts optional `?TargetingRule $targeting = null`; subjects
+  that don't match receive the fallback variant.
+- `Assignment` gains `isTargetingMismatch: bool` (default false) to distinguish
+  targeting-excluded subjects from disabled-experiment fallback.
+- `AbTesting::assign()` checks targeting after the disabled-experiment guard and
+  before calling the assignment strategy. `forcedVariant` bypasses targeting.
+
 ## 1.3.0 — 2026-06-11
 
 - `LoggerExposureTracker` / `LoggerConversionTracker` — default zero-infra sinks that write each event as one structured PSR-3 log record (log level configurable). Folded in from the former `yii3-ab-testing-psr-logger` adapter. Core `config/di.php` does not bind them (one-source rule); bind them in app config. Adds `psr/log` as a runtime dependency.
