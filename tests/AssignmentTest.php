@@ -37,6 +37,20 @@ final class AssignmentTest extends TestCase
         $this->assertFalse($a->isForced);
         $this->assertFalse($a->isFallback);
         $this->assertFalse($a->isSticky);
+        $this->assertFalse($a->isTargetingMismatch);
+    }
+
+    #[Test]
+    public function targetingMismatchFlagIsSet(): void
+    {
+        $a = new Assignment(
+            experiment: 'exp',
+            variant: 'a',
+            subjectId: 'u1',
+            isTargetingMismatch: true,
+        );
+
+        $this->assertTrue($a->isTargetingMismatch);
     }
 
     #[Test]
