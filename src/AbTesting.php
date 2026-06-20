@@ -58,6 +58,18 @@ final readonly class AbTesting
             );
         }
 
+        if ($exp->targeting !== null
+            && !$exp->targeting->matches($context ?? AssignmentContext::empty())) {
+            return new Assignment(
+                experiment: $experiment,
+                variant: $exp->fallbackVariant,
+                subjectId: $subjectId,
+                isFallback: true,
+                isTargetingMismatch: true,
+                context: $context,
+            );
+        }
+
         $variant = $this->strategy->assign(
             salt: $exp->salt,
             subjectId: $subjectId,
