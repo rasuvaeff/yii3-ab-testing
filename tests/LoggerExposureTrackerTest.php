@@ -4,27 +4,28 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Rasuvaeff\Yii3AbTesting\LoggerExposureTracker;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Test\Support\Log\SimpleLogger;
 
-#[CoversClass(LoggerExposureTracker::class)]
-final class LoggerExposureTrackerTest extends TestCase
+#[Test]
+#[Covers(LoggerExposureTracker::class)]
+final class LoggerExposureTrackerTest
 {
     private SimpleLogger $logger;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->logger = new SimpleLogger();
     }
 
-    #[Test]
     public function logsExposureAtInfoLevelWithFullContext(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
@@ -32,7 +33,7 @@ final class LoggerExposureTrackerTest extends TestCase
 
         $tracker->trackExposure($assignment);
 
-        $this->assertSame([
+        Assert::same($this->logger->getMessages(), [
             [
                 'level' => LogLevel::INFO,
                 'message' => 'A/B test exposure',
@@ -47,20 +48,18 @@ final class LoggerExposureTrackerTest extends TestCase
                     'attributes' => [],
                 ],
             ],
-        ], $this->logger->getMessages());
+        ]);
     }
 
-    #[Test]
     public function logsAtConfiguredLevel(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger, level: LogLevel::DEBUG);
 
         $tracker->trackExposure(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'));
 
-        $this->assertSame(LogLevel::DEBUG, $this->logger->getMessages()[0]['level']);
+        Assert::same($this->logger->getMessages()[0]['level'], LogLevel::DEBUG);
     }
 
-    #[Test]
     public function carriesForcedAndFallbackFlags(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
@@ -74,11 +73,10 @@ final class LoggerExposureTrackerTest extends TestCase
         ));
 
         $context = $this->logger->getMessages()[0]['context'];
-        $this->assertTrue($context['isForced']);
-        $this->assertTrue($context['isFallback']);
+        Assert::true($context['isForced']);
+        Assert::true($context['isFallback']);
     }
 
-    #[Test]
     public function carriesStickyFlag(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
@@ -90,10 +88,9 @@ final class LoggerExposureTrackerTest extends TestCase
             isSticky: true,
         ));
 
-        $this->assertTrue($this->logger->getMessages()[0]['context']['isSticky']);
+        Assert::true($this->logger->getMessages()[0]['context']['isSticky']);
     }
 
-    #[Test]
     public function carriesEnvironmentAndAttributesFromContext(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
@@ -107,7 +104,7 @@ final class LoggerExposureTrackerTest extends TestCase
         ));
 
         $logged = $this->logger->getMessages()[0]['context'];
-        $this->assertSame('production', $logged['environment']);
-        $this->assertSame(['country' => 'DE'], $logged['attributes']);
+        Assert::same($logged['environment'], 'production');
+        Assert::same($logged['attributes'], ['country' => 'DE']);
     }
 }

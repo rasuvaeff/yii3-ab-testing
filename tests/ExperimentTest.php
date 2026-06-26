@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidExperimentException;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidVariantException;
 use Rasuvaeff\Yii3AbTesting\Experiment;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Expect;
+use Testo\Test;
 
-#[CoversClass(Experiment::class)]
-final class ExperimentTest extends TestCase
+#[Test]
+#[Covers(Experiment::class)]
+final class ExperimentTest
 {
-    #[Test]
     public function createsValidExperiment(): void
     {
         $exp = new Experiment(
@@ -27,17 +28,16 @@ final class ExperimentTest extends TestCase
             variants: ['control' => 50, 'green' => 50],
         );
 
-        $this->assertSame('checkout-button', $exp->name);
-        $this->assertTrue($exp->enabled);
-        $this->assertSame('checkout-v1', $exp->salt);
-        $this->assertSame('control', $exp->fallbackVariant);
-        $this->assertSame(['control' => 50, 'green' => 50], $exp->variants);
+        Assert::same($exp->name, 'checkout-button');
+        Assert::true($exp->enabled);
+        Assert::same($exp->salt, 'checkout-v1');
+        Assert::same($exp->fallbackVariant, 'control');
+        Assert::same($exp->variants, ['control' => 50, 'green' => 50]);
     }
 
-    #[Test]
     public function throwsOnInvalidExperimentName(): void
     {
-        $this->expectException(InvalidExperimentException::class);
+        Expect::exception(InvalidExperimentException::class);
 
         new Experiment(
             name: 'INVALID',
@@ -48,10 +48,9 @@ final class ExperimentTest extends TestCase
         );
     }
 
-    #[Test]
     public function throwsOnInvalidVariantName(): void
     {
-        $this->expectException(InvalidVariantException::class);
+        Expect::exception(InvalidVariantException::class);
 
         new Experiment(
             name: 'test',
@@ -62,22 +61,22 @@ final class ExperimentTest extends TestCase
         );
     }
 
-    #[Test]
     public function throwsOnEmptySalt(): void
     {
-        $this->expectException(InvalidExperimentException::class);
-        $this->expectExceptionMessage('Salt must not be empty');
-
-        new Experiment(
-            name: 'test',
-            enabled: true,
-            salt: '',
-            fallbackVariant: 'a',
-            variants: ['a' => 100],
-        );
+        try {
+            new Experiment(
+                name: 'test',
+                enabled: true,
+                salt: '',
+                fallbackVariant: 'a',
+                variants: ['a' => 100],
+            );
+            Assert::fail('Expected InvalidExperimentException');
+        } catch (InvalidExperimentException $e) {
+            Assert::string($e->getMessage())->contains('Salt must not be empty');
+        }
     }
 
-    #[Test]
     public function emptySaltMessageContainsExperimentName(): void
     {
         try {
@@ -88,34 +87,31 @@ final class ExperimentTest extends TestCase
                 fallbackVariant: 'a',
                 variants: ['a' => 100],
             );
+            Assert::fail('Expected InvalidExperimentException');
         } catch (InvalidExperimentException $e) {
-            $this->assertStringContainsString('my-exp', $e->getMessage());
-
-            return;
+            Assert::string($e->getMessage())->contains('my-exp');
         }
-
-        $this->fail('Exception was not thrown');
     }
 
-    #[Test]
     public function throwsOnEmptyVariants(): void
     {
-        $this->expectException(InvalidExperimentException::class);
-        $this->expectExceptionMessage('must have at least one variant');
-
-        new Experiment(
-            name: 'test',
-            enabled: true,
-            salt: 'salt',
-            fallbackVariant: 'a',
-            variants: [],
-        );
+        try {
+            new Experiment(
+                name: 'test',
+                enabled: true,
+                salt: 'salt',
+                fallbackVariant: 'a',
+                variants: [],
+            );
+            Assert::fail('Expected InvalidExperimentException');
+        } catch (InvalidExperimentException $e) {
+            Assert::string($e->getMessage())->contains('must have at least one variant');
+        }
     }
 
-    #[Test]
     public function throwsOnMissingFallbackVariant(): void
     {
-        $this->expectException(InvalidExperimentException::class);
+        Expect::exception(InvalidExperimentException::class);
 
         new Experiment(
             name: 'test',
@@ -126,10 +122,9 @@ final class ExperimentTest extends TestCase
         );
     }
 
-    #[Test]
     public function throwsOnZeroTotalWeight(): void
     {
-        $this->expectException(InvalidExperimentException::class);
+        Expect::exception(InvalidExperimentException::class);
 
         new Experiment(
             name: 'test',
@@ -140,7 +135,6 @@ final class ExperimentTest extends TestCase
         );
     }
 
-    #[Test]
     public function targetingIsNullByDefault(): void
     {
         $exp = new Experiment(
@@ -151,10 +145,9 @@ final class ExperimentTest extends TestCase
             variants: ['a' => 100],
         );
 
-        $this->assertNull($exp->targeting);
+        Assert::null($exp->targeting);
     }
 
-    #[Test]
     public function acceptsTargetingRule(): void
     {
         $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
@@ -167,12 +160,9 @@ final class ExperimentTest extends TestCase
             targeting: $rule,
         );
 
-        $this->assertSame($rule, $exp->targeting);
+        Assert::same($exp->targeting, $rule);
     }
 
-    /**
-     * @return iterable<string, array{string}>
-     */
     public static function validNameProvider(): iterable
     {
         yield 'simple' => ['checkout'];
@@ -182,7 +172,6 @@ final class ExperimentTest extends TestCase
     }
 
     #[DataProvider('validNameProvider')]
-    #[Test]
     public function acceptsValidNames(string $name): void
     {
         $exp = new Experiment(
@@ -193,6 +182,6 @@ final class ExperimentTest extends TestCase
             variants: ['a' => 100],
         );
 
-        $this->assertSame($name, $exp->name);
+        Assert::same($exp->name, $name);
     }
 }

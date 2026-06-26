@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\CompositeConversionTracker;
 use Rasuvaeff\Yii3AbTesting\CompositeExposureTracker;
 use Rasuvaeff\Yii3AbTesting\ConversionTracker;
 use Rasuvaeff\Yii3AbTesting\ExposureTracker;
 use Rasuvaeff\Yii3AbTesting\FlushableTracker;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(CompositeExposureTracker::class)]
-#[CoversClass(CompositeConversionTracker::class)]
-final class CompositeTrackerTest extends TestCase
+#[Test]
+#[Covers(CompositeExposureTracker::class)]
+#[Covers(CompositeConversionTracker::class)]
+final class CompositeTrackerTest
 {
-    #[Test]
     public function exposureIsForwardedToEveryTrackerInOrder(): void
     {
         $a = $this->recordingExposure('first');
@@ -28,11 +28,10 @@ final class CompositeTrackerTest extends TestCase
 
         $composite->trackExposure($assignment);
 
-        $this->assertSame(['first:exp:green'], $a->calls);
-        $this->assertSame(['second:exp:green'], $b->calls);
+        Assert::same($a->calls, ['first:exp:green']);
+        Assert::same($b->calls, ['second:exp:green']);
     }
 
-    #[Test]
     public function conversionIsForwardedToEveryTrackerInOrder(): void
     {
         $a = $this->recordingConversion('first');
@@ -42,33 +41,30 @@ final class CompositeTrackerTest extends TestCase
 
         $composite->trackConversion($assignment, goal: 'purchase');
 
-        $this->assertSame(['first:exp:green:purchase'], $a->calls);
-        $this->assertSame(['second:exp:green:purchase'], $b->calls);
+        Assert::same($a->calls, ['first:exp:green:purchase']);
+        Assert::same($b->calls, ['second:exp:green:purchase']);
     }
 
-    #[Test]
     public function emptyExposureCompositeDoesNothing(): void
     {
         $composite = new CompositeExposureTracker();
         $assignment = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
 
-        $this->expectNotToPerformAssertions();
-
         $composite->trackExposure($assignment);
+
+        Assert::true(true);
     }
 
-    #[Test]
     public function emptyConversionCompositeDoesNothing(): void
     {
         $composite = new CompositeConversionTracker();
         $assignment = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
 
-        $this->expectNotToPerformAssertions();
-
         $composite->trackConversion($assignment, goal: 'purchase');
+
+        Assert::true(true);
     }
 
-    #[Test]
     public function exposureFlushReachesOnlyFlushableTrackers(): void
     {
         $plain = $this->recordingExposure('plain');
@@ -77,11 +73,10 @@ final class CompositeTrackerTest extends TestCase
 
         $composite->flush();
 
-        $this->assertSame(1, $flushable->flushes);
-        $this->assertSame([], $plain->calls);
+        Assert::same($flushable->flushes, 1);
+        Assert::same($plain->calls, []);
     }
 
-    #[Test]
     public function conversionFlushReachesOnlyFlushableTrackers(): void
     {
         $plain = $this->recordingConversion('plain');
@@ -90,13 +85,10 @@ final class CompositeTrackerTest extends TestCase
 
         $composite->flush();
 
-        $this->assertSame(1, $flushable->flushes);
-        $this->assertSame([], $plain->calls);
+        Assert::same($flushable->flushes, 1);
+        Assert::same($plain->calls, []);
     }
 
-    /**
-     * @return ExposureTracker&FlushableTracker&object{flushes: int}
-     */
     private function flushableExposure(): ExposureTracker&FlushableTracker
     {
         return new class implements ExposureTracker, FlushableTracker {
@@ -113,9 +105,6 @@ final class CompositeTrackerTest extends TestCase
         };
     }
 
-    /**
-     * @return ConversionTracker&FlushableTracker&object{flushes: int}
-     */
     private function flushableConversion(): ConversionTracker&FlushableTracker
     {
         return new class implements ConversionTracker, FlushableTracker {
@@ -132,9 +121,6 @@ final class CompositeTrackerTest extends TestCase
         };
     }
 
-    /**
-     * @return ExposureTracker&object{calls: list<string>}
-     */
     private function recordingExposure(string $tag): ExposureTracker
     {
         return new class ($tag) implements ExposureTracker {
@@ -151,9 +137,6 @@ final class CompositeTrackerTest extends TestCase
         };
     }
 
-    /**
-     * @return ConversionTracker&object{calls: list<string>}
-     */
     private function recordingConversion(string $tag): ConversionTracker
     {
         return new class ($tag) implements ConversionTracker {

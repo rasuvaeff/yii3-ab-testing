@@ -4,27 +4,28 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Rasuvaeff\Yii3AbTesting\LoggerConversionTracker;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Test\Support\Log\SimpleLogger;
 
-#[CoversClass(LoggerConversionTracker::class)]
-final class LoggerConversionTrackerTest extends TestCase
+#[Test]
+#[Covers(LoggerConversionTracker::class)]
+final class LoggerConversionTrackerTest
 {
     private SimpleLogger $logger;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->logger = new SimpleLogger();
     }
 
-    #[Test]
     public function logsConversionAtInfoLevelWithFullContext(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
@@ -32,7 +33,7 @@ final class LoggerConversionTrackerTest extends TestCase
 
         $tracker->trackConversion($assignment, goal: 'purchase');
 
-        $this->assertSame([
+        Assert::same($this->logger->getMessages(), [
             [
                 'level' => LogLevel::INFO,
                 'message' => 'A/B test conversion',
@@ -48,30 +49,27 @@ final class LoggerConversionTrackerTest extends TestCase
                     'attributes' => [],
                 ],
             ],
-        ], $this->logger->getMessages());
+        ]);
     }
 
-    #[Test]
     public function logsAtConfiguredLevel(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger, level: LogLevel::NOTICE);
 
         $tracker->trackConversion(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'), goal: 'signup');
 
-        $this->assertSame(LogLevel::NOTICE, $this->logger->getMessages()[0]['level']);
+        Assert::same($this->logger->getMessages()[0]['level'], LogLevel::NOTICE);
     }
 
-    #[Test]
     public function recordsGoal(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
 
         $tracker->trackConversion(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'), goal: 'add-to-cart');
 
-        $this->assertSame('add-to-cart', $this->logger->getMessages()[0]['context']['goal']);
+        Assert::same($this->logger->getMessages()[0]['context']['goal'], 'add-to-cart');
     }
 
-    #[Test]
     public function carriesStickyFlag(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
@@ -81,10 +79,9 @@ final class LoggerConversionTrackerTest extends TestCase
             goal: 'purchase',
         );
 
-        $this->assertTrue($this->logger->getMessages()[0]['context']['isSticky']);
+        Assert::true($this->logger->getMessages()[0]['context']['isSticky']);
     }
 
-    #[Test]
     public function carriesEnvironmentAndAttributesFromContext(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
@@ -96,7 +93,7 @@ final class LoggerConversionTrackerTest extends TestCase
         );
 
         $logged = $this->logger->getMessages()[0]['context'];
-        $this->assertSame('staging', $logged['environment']);
-        $this->assertSame(['plan' => 'pro'], $logged['attributes']);
+        Assert::same($logged['environment'], 'staging');
+        Assert::same($logged['attributes'], ['plan' => 'pro']);
     }
 }

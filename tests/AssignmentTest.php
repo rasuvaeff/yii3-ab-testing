@@ -4,43 +4,40 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(Assignment::class)]
-final class AssignmentTest extends TestCase
+#[Test]
+#[Covers(Assignment::class)]
+final class AssignmentTest
 {
-    #[Test]
     public function isVariantReturnsTrueForMatch(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'user-1');
 
-        $this->assertTrue($a->isVariant('green'));
+        Assert::true($a->isVariant('green'));
     }
 
-    #[Test]
     public function isVariantReturnsFalseForMismatch(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'user-1');
 
-        $this->assertFalse($a->isVariant('control'));
+        Assert::false($a->isVariant('control'));
     }
 
-    #[Test]
     public function defaultFlagsAreFalse(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1');
 
-        $this->assertFalse($a->isForced);
-        $this->assertFalse($a->isFallback);
-        $this->assertFalse($a->isSticky);
-        $this->assertFalse($a->isTargetingMismatch);
+        Assert::false($a->isForced);
+        Assert::false($a->isFallback);
+        Assert::false($a->isSticky);
+        Assert::false($a->isTargetingMismatch);
     }
 
-    #[Test]
     public function targetingMismatchFlagIsSet(): void
     {
         $a = new Assignment(
@@ -50,47 +47,42 @@ final class AssignmentTest extends TestCase
             isTargetingMismatch: true,
         );
 
-        $this->assertTrue($a->isTargetingMismatch);
+        Assert::true($a->isTargetingMismatch);
     }
 
-    #[Test]
     public function stickyFlagIsSet(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isSticky: true);
 
-        $this->assertTrue($a->isSticky);
+        Assert::true($a->isSticky);
     }
 
-    #[Test]
     public function forcedFlagIsSet(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isForced: true);
 
-        $this->assertTrue($a->isForced);
+        Assert::true($a->isForced);
     }
 
-    #[Test]
     public function fallbackFlagIsSet(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isFallback: true);
 
-        $this->assertTrue($a->isFallback);
+        Assert::true($a->isFallback);
     }
 
-    #[Test]
     public function contextDefaultsToNull(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1');
 
-        $this->assertNull($a->context);
+        Assert::null($a->context);
     }
 
-    #[Test]
     public function contextIsStored(): void
     {
         $context = AssignmentContext::forEnvironment('production');
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', context: $context);
 
-        $this->assertSame($context, $a->context);
+        Assert::same($a->context, $context);
     }
 }
