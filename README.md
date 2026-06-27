@@ -341,7 +341,7 @@ make install       # composer install
 make build         # full gate (validate + cs + psalm + test)
 make cs-fix        # fix code style
 make psalm         # static analysis
-make test          # run phpunit
+make test          # run testo
 make test-coverage  # run coverage
 make mutation       # mutation testing
 make release-check  # build + rector + bc-check + mutation

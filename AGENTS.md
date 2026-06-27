@@ -102,7 +102,7 @@ make release-check
   each (app or backend), else `yiisoft/config` throws `Duplicate key`. `AbTesting`
   requires an `ExperimentProvider` (no default), so without an app/backend binding
   it does not resolve — that is intentional (mirrors `FlagProvider`). This file is
-  not covered by cs/psalm/phpunit — verify changes with a real `yiisoft/di`
+  not covered by cs/psalm/test — verify changes with a real `yiisoft/di`
   resolution harness, not the build gate.
 
 - `examples/` is part of the public contract: keep scripts runnable and update

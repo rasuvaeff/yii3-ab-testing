@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -18,10 +15,17 @@ use Rasuvaeff\Yii3AbTesting\Exception\InvalidVariantException;
 use Rasuvaeff\Yii3AbTesting\Experiment;
 use Rasuvaeff\Yii3AbTesting\ExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\ExposureTracker;
+use Rasuvaeff\Yii3AbTesting\TargetingRule;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(AbTesting::class)]
-final class AbTestingTest extends TestCase
+#[Test]
+#[Covers(AbTesting::class)]
+final class AbTestingTest
 {
     private AbTesting $abTesting;
 
@@ -31,8 +35,8 @@ final class AbTestingTest extends TestCase
     /** @var list<array{assignment: Assignment, goal: string}> */
     private array $conversions = [];
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->exposures = [];
         $this->conversions = [];
@@ -46,7 +50,8 @@ final class AbTestingTest extends TestCase
             ],
         ]);
 
-        $exposureTracker = new class ($this->exposures) implements ExposureTracker {
+        $exposures = &$this->exposures;
+        $exposureTracker = new class ($exposures) implements ExposureTracker {
             /** @param list<Assignment> $exposures */
             public function __construct(
                 private array &$exposures,
@@ -59,7 +64,8 @@ final class AbTestingTest extends TestCase
             }
         };
 
-        $conversionTracker = new class ($this->conversions) implements ConversionTracker {
+        $conversions = &$this->conversions;
+        $conversionTracker = new class ($conversions) implements ConversionTracker {
             /** @param list<array{assignment: Assignment, goal: string}> $conversions */
             public function __construct(
                 private array &$conversions,
@@ -80,27 +86,24 @@ final class AbTestingTest extends TestCase
         );
     }
 
-    #[Test]
     public function assignReturnsDeterministicVariant(): void
     {
         $a1 = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
         $a2 = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
 
-        $this->assertSame($a1->variant, $a2->variant);
+        Assert::same($a1->variant, $a2->variant);
     }
 
-    #[Test]
     public function assignReturnsAssignmentWithCorrectFields(): void
     {
         $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
 
-        $this->assertSame('checkout-button', $assignment->experiment);
-        $this->assertSame('user-1', $assignment->subjectId);
-        $this->assertFalse($assignment->isForced);
-        $this->assertFalse($assignment->isFallback);
+        Assert::same($assignment->experiment, 'checkout-button');
+        Assert::same($assignment->subjectId, 'user-1');
+        Assert::false($assignment->isForced);
+        Assert::false($assignment->isFallback);
     }
 
-    #[Test]
     public function forcedVariantReturnsCorrectAssignment(): void
     {
         $assignment = $this->abTesting->assign(
@@ -109,14 +112,13 @@ final class AbTestingTest extends TestCase
             forcedVariant: 'green',
         );
 
-        $this->assertSame('green', $assignment->variant);
-        $this->assertTrue($assignment->isForced);
+        Assert::same($assignment->variant, 'green');
+        Assert::true($assignment->isForced);
     }
 
-    #[Test]
     public function unknownForcedVariantThrows(): void
     {
-        $this->expectException(InvalidVariantException::class);
+        Expect::exception(InvalidVariantException::class);
 
         $this->abTesting->assign(
             experiment: 'checkout-button',
@@ -125,7 +127,6 @@ final class AbTestingTest extends TestCase
         );
     }
 
-    #[Test]
     public function disabledExperimentReturnsFallback(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -140,14 +141,13 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'disabled-test', subjectId: 'user-1');
 
-        $this->assertSame('control', $assignment->variant);
-        $this->assertTrue($assignment->isFallback);
+        Assert::same($assignment->variant, 'control');
+        Assert::true($assignment->isFallback);
     }
 
-    #[Test]
     public function isReturnsTrueForMatchingVariant(): void
     {
-        $this->assertTrue($this->abTesting->is(
+        Assert::true($this->abTesting->is(
             experiment: 'checkout-button',
             variant: 'green',
             subjectId: 'user-1',
@@ -155,10 +155,9 @@ final class AbTestingTest extends TestCase
         ));
     }
 
-    #[Test]
     public function isReturnsFalseForNonMatchingVariant(): void
     {
-        $this->assertFalse($this->abTesting->is(
+        Assert::false($this->abTesting->is(
             experiment: 'checkout-button',
             variant: 'control',
             subjectId: 'user-1',
@@ -166,42 +165,37 @@ final class AbTestingTest extends TestCase
         ));
     }
 
-    #[Test]
     public function assignDoesNotTriggerExposure(): void
     {
         $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
 
-        $this->assertSame([], $this->exposures);
+        Assert::same($this->exposures, []);
     }
 
-    #[Test]
     public function trackExposureRecordsAssignment(): void
     {
         $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
         $this->abTesting->trackExposure($assignment);
 
-        $this->assertCount(1, $this->exposures);
-        $this->assertSame($assignment, $this->exposures[0]);
+        Assert::count($this->exposures, 1);
+        Assert::same($this->exposures[0], $assignment);
     }
 
-    #[Test]
     public function trackConversionRecordsAssignmentAndGoal(): void
     {
         $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
         $this->abTesting->trackConversion($assignment, goal: 'purchase');
 
-        $this->assertCount(1, $this->conversions);
-        $this->assertSame($assignment, $this->conversions[0]['assignment']);
-        $this->assertSame('purchase', $this->conversions[0]['goal']);
+        Assert::count($this->conversions, 1);
+        Assert::same($this->conversions[0]['assignment'], $assignment);
+        Assert::same($this->conversions[0]['goal'], 'purchase');
     }
 
-    #[Test]
     public function getRegistryExposesConfiguredExperiment(): void
     {
-        $this->assertTrue($this->abTesting->getRegistry()->has('checkout-button'));
+        Assert::true($this->abTesting->getRegistry()->has('checkout-button'));
     }
 
-    #[Test]
     public function assignCarriesContext(): void
     {
         $context = AssignmentContext::forEnvironment('production');
@@ -212,10 +206,9 @@ final class AbTestingTest extends TestCase
             context: $context,
         );
 
-        $this->assertSame($context, $assignment->context);
+        Assert::same($assignment->context, $context);
     }
 
-    #[Test]
     public function forcedAssignmentCarriesContext(): void
     {
         $context = AssignmentContext::forEnvironment('staging');
@@ -227,10 +220,9 @@ final class AbTestingTest extends TestCase
             context: $context,
         );
 
-        $this->assertSame($context, $assignment->context);
+        Assert::same($assignment->context, $context);
     }
 
-    #[Test]
     public function fallbackAssignmentCarriesContext(): void
     {
         $context = AssignmentContext::forEnvironment('production');
@@ -246,10 +238,9 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'disabled-test', subjectId: 'user-1', context: $context);
 
-        $this->assertSame($context, $assignment->context);
+        Assert::same($assignment->context, $context);
     }
 
-    #[Test]
     public function targetingMismatchReturnsFallbackWithFlag(): void
     {
         $ab = $this->abTestingWithTargeting(
@@ -259,12 +250,11 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
 
-        $this->assertSame('control', $assignment->variant);
-        $this->assertTrue($assignment->isFallback);
-        $this->assertTrue($assignment->isTargetingMismatch);
+        Assert::same($assignment->variant, 'control');
+        Assert::true($assignment->isFallback);
+        Assert::true($assignment->isTargetingMismatch);
     }
 
-    #[Test]
     public function targetingMatchProceedsToNormalAssignment(): void
     {
         $ab = $this->abTestingWithTargeting(
@@ -274,21 +264,19 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
 
-        $this->assertFalse($assignment->isFallback);
-        $this->assertFalse($assignment->isTargetingMismatch);
-        $this->assertContains($assignment->variant, ['control', 'green']);
+        Assert::false($assignment->isFallback);
+        Assert::false($assignment->isTargetingMismatch);
+        Assert::true(in_array($assignment->variant, ['control', 'green'], true));
     }
 
-    #[Test]
     public function noTargetingAssignsAllSubjects(): void
     {
         $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
 
-        $this->assertFalse($assignment->isFallback);
-        $this->assertFalse($assignment->isTargetingMismatch);
+        Assert::false($assignment->isFallback);
+        Assert::false($assignment->isTargetingMismatch);
     }
 
-    #[Test]
     public function forcedVariantBypassesTargeting(): void
     {
         $ab = $this->abTestingWithTargeting(
@@ -303,12 +291,11 @@ final class AbTestingTest extends TestCase
             context: $context,
         );
 
-        $this->assertSame('green', $assignment->variant);
-        $this->assertTrue($assignment->isForced);
-        $this->assertFalse($assignment->isTargetingMismatch);
+        Assert::same($assignment->variant, 'green');
+        Assert::true($assignment->isForced);
+        Assert::false($assignment->isTargetingMismatch);
     }
 
-    #[Test]
     public function disabledExperimentBypassesTargetingCheck(): void
     {
         $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
@@ -334,11 +321,10 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1');
 
-        $this->assertTrue($assignment->isFallback);
-        $this->assertFalse($assignment->isTargetingMismatch);
+        Assert::true($assignment->isFallback);
+        Assert::false($assignment->isTargetingMismatch);
     }
 
-    #[Test]
     public function targetingMismatchCarriesContext(): void
     {
         $ab = $this->abTestingWithTargeting(
@@ -348,14 +334,14 @@ final class AbTestingTest extends TestCase
 
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
 
-        $this->assertSame($context, $assignment->context);
+        Assert::same($assignment->context, $context);
     }
 
     private function abTestingWithTargeting(
-        \Rasuvaeff\Yii3AbTesting\TargetingRule $targeting,
+        TargetingRule $targeting,
     ): AbTesting {
         $provider = new class ($targeting) implements ExperimentProvider {
-            public function __construct(private readonly \Rasuvaeff\Yii3AbTesting\TargetingRule $targeting) {}
+            public function __construct(private readonly TargetingRule $targeting) {}
 
             #[\Override]
             public function getExperiments(): array

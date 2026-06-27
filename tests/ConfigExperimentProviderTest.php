@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\Experiment;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(ConfigExperimentProvider::class)]
-final class ConfigExperimentProviderTest extends TestCase
+#[Test]
+#[Covers(ConfigExperimentProvider::class)]
+final class ConfigExperimentProviderTest
 {
-    #[Test]
     public function buildsExperimentsFromConfig(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -27,19 +27,17 @@ final class ConfigExperimentProviderTest extends TestCase
 
         $experiments = $provider->getExperiments();
 
-        $this->assertArrayHasKey('checkout-button', $experiments);
-        $this->assertInstanceOf(Experiment::class, $experiments['checkout-button']);
+        Assert::array($experiments)->hasKeys('checkout-button');
+        Assert::instanceOf($experiments['checkout-button'], Experiment::class);
     }
 
-    #[Test]
     public function returnsEmptyArrayForEmptyConfig(): void
     {
         $provider = new ConfigExperimentProvider(config: []);
 
-        $this->assertSame([], $provider->getExperiments());
+        Assert::same($provider->getExperiments(), []);
     }
 
-    #[Test]
     public function returnsAllConfiguredExperiments(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -49,12 +47,11 @@ final class ConfigExperimentProviderTest extends TestCase
 
         $experiments = $provider->getExperiments();
 
-        $this->assertCount(2, $experiments);
-        $this->assertArrayHasKey('first', $experiments);
-        $this->assertArrayHasKey('second', $experiments);
+        Assert::count($experiments, 2);
+        Assert::array($experiments)->hasKeys('first');
+        Assert::array($experiments)->hasKeys('second');
     }
 
-    #[Test]
     public function keysExperimentsByName(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -64,10 +61,9 @@ final class ConfigExperimentProviderTest extends TestCase
             ],
         ]);
 
-        $this->assertSame('my-test', $provider->getExperiments()['my-test']->name);
+        Assert::same($provider->getExperiments()['my-test']->name, 'my-test');
     }
 
-    #[Test]
     public function usesNameAsDefaultSalt(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -77,10 +73,9 @@ final class ConfigExperimentProviderTest extends TestCase
             ],
         ]);
 
-        $this->assertSame('my-test', $provider->getExperiments()['my-test']->salt);
+        Assert::same($provider->getExperiments()['my-test']->salt, 'my-test');
     }
 
-    #[Test]
     public function usesExplicitSaltWhenProvided(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -91,10 +86,9 @@ final class ConfigExperimentProviderTest extends TestCase
             ],
         ]);
 
-        $this->assertSame('custom-salt', $provider->getExperiments()['my-exp']->salt);
+        Assert::same($provider->getExperiments()['my-exp']->salt, 'custom-salt');
     }
 
-    #[Test]
     public function defaultsToEnabled(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -105,10 +99,9 @@ final class ConfigExperimentProviderTest extends TestCase
             ],
         ]);
 
-        $this->assertTrue($provider->getExperiments()['test']->enabled);
+        Assert::true($provider->getExperiments()['test']->enabled);
     }
 
-    #[Test]
     public function respectsExplicitDisabled(): void
     {
         $provider = new ConfigExperimentProvider([
@@ -120,6 +113,6 @@ final class ConfigExperimentProviderTest extends TestCase
             ],
         ]);
 
-        $this->assertFalse($provider->getExperiments()['test']->enabled);
+        Assert::false($provider->getExperiments()['test']->enabled);
     }
 }

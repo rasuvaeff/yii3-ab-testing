@@ -4,23 +4,24 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 
-#[CoversClass(WeightedHashAssignmentStrategy::class)]
-final class WeightedHashAssignmentStrategyTest extends TestCase
+#[Test]
+#[Covers(WeightedHashAssignmentStrategy::class)]
+final class WeightedHashAssignmentStrategyTest
 {
     private WeightedHashAssignmentStrategy $strategy;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->strategy = new WeightedHashAssignmentStrategy();
     }
 
-    #[Test]
     public function sameSubjectIdGetsSameVariant(): void
     {
         $variants = ['control' => 50, 'green' => 50];
@@ -28,10 +29,9 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
         $result1 = $this->strategy->assign(salt: 'test', subjectId: 'user-1', variants: $variants);
         $result2 = $this->strategy->assign(salt: 'test', subjectId: 'user-1', variants: $variants);
 
-        $this->assertSame($result1, $result2);
+        Assert::same($result1, $result2);
     }
 
-    #[Test]
     public function differentSaltGivesIndependentDistribution(): void
     {
         $variants = ['a' => 50, 'b' => 50];
@@ -46,18 +46,16 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
             }
         }
 
-        $this->assertGreaterThan(0, $differences);
+        Assert::true($differences > 0);
     }
 
-    #[Test]
     public function singleVariantAlwaysAssigned(): void
     {
         $result = $this->strategy->assign(salt: 'test', subjectId: 'any-user', variants: ['only' => 100]);
 
-        $this->assertSame('only', $result);
+        Assert::same($result, 'only');
     }
 
-    #[Test]
     public function weightedDistributionAcrossSubjects(): void
     {
         $variants = ['control' => 50, 'green' => 50];
@@ -68,42 +66,36 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
             ++$counts[$variant];
         }
 
-        $this->assertGreaterThan(300, $counts['control']);
-        $this->assertGreaterThan(300, $counts['green']);
+        Assert::true($counts['control'] > 300);
+        Assert::true($counts['green'] > 300);
     }
 
-    #[Test]
     public function sortsVariantsByKeyDeterministically(): void
     {
         $resultZ = $this->strategy->assign(salt: 'sort-test', subjectId: '1', variants: ['z' => 50, 'a' => 50]);
         $resultA = $this->strategy->assign(salt: 'sort-test', subjectId: '1', variants: ['a' => 50, 'z' => 50]);
 
-        $this->assertSame($resultZ, $resultA);
+        Assert::same($resultZ, $resultA);
     }
 
-    #[Test]
     public function cumulativeWeightAccumulatesAcrossVariants(): void
     {
-        // salt 'mid', subject '2' → bucket 13 of 30 → middle variant 'b'.
-        // A non-accumulating bug ($cumulative = $weight) would fall through to 'c'.
         $result = $this->strategy->assign(
             salt: 'mid',
             subjectId: '2',
             variants: ['a' => 10, 'b' => 10, 'c' => 10],
         );
 
-        $this->assertSame('b', $result);
+        Assert::same($result, 'b');
     }
 
-    #[Test]
     public function cumulativeWeightBoundaryIsCorrect(): void
     {
         $digest = hash('sha256', 'boundary:1');
         $hash = (int) hexdec(substr($digest, 0, 8));
         $bucket = $hash % 100;
 
-        // bucket = 37, so variant 'a' needs weight > 37
-        $this->assertSame(37, $bucket);
+        Assert::same($bucket, 37);
 
         $result = $this->strategy->assign(
             salt: 'boundary',
@@ -111,10 +103,9 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
             variants: ['a' => 38, 'b' => 62],
         );
 
-        $this->assertSame('a', $result);
+        Assert::same($result, 'a');
     }
 
-    #[Test]
     public function concatenatesSaltWithColonAndSubjectId(): void
     {
         $digest = hash('sha256', 'mysalt:myuser');
@@ -128,10 +119,9 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
             variants: ['a' => 50, 'b' => 50],
         );
 
-        $this->assertSame($expected, $result);
+        Assert::same($result, $expected);
     }
 
-    #[Test]
     public function hashUsesExactlyEightHexChars(): void
     {
         $digest = hash('sha256', 'test:1');
@@ -141,35 +131,33 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
 
         $result = $this->strategy->assign(salt: 'test', subjectId: '1', variants: ['a' => 50, 'b' => 50]);
 
-        $this->assertSame($expected, $result);
+        Assert::same($result, $expected);
     }
 
-    #[Test]
     public function allWeightGoesToOneVariant(): void
     {
         $result = $this->strategy->assign(salt: 'test', subjectId: 'user-1', variants: ['a' => 0, 'b' => 100]);
 
-        $this->assertSame('b', $result);
+        Assert::same($result, 'b');
     }
 
-    #[Test]
     public function zeroWeightVariantIsSkipped(): void
     {
         $result = $this->strategy->assign(salt: 'zero', subjectId: '1', variants: ['a' => 0, 'b' => 100]);
 
-        $this->assertSame('b', $result);
+        Assert::same($result, 'b');
     }
 
-    #[Test]
     public function throwsOnZeroTotalWeight(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Total variant weight must be greater than 0');
-
-        $this->strategy->assign(salt: 'test', subjectId: 'u1', variants: ['a' => 0, 'b' => 0]);
+        try {
+            $this->strategy->assign(salt: 'test', subjectId: 'u1', variants: ['a' => 0, 'b' => 0]);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (\InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Total variant weight must be greater than 0');
+        }
     }
 
-    #[Test]
     public function weightedDistributionWithUnequalWeights(): void
     {
         $variants = ['control' => 90, 'experiment' => 10];
@@ -180,7 +168,7 @@ final class WeightedHashAssignmentStrategyTest extends TestCase
             ++$counts[$variant];
         }
 
-        $this->assertGreaterThan(700, $counts['control']);
-        $this->assertLessThan(300, $counts['experiment']);
+        Assert::true($counts['control'] > 700);
+        Assert::true($counts['experiment'] < 300);
     }
 }
