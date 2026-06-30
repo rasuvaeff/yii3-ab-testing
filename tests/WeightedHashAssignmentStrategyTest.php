@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -170,5 +173,88 @@ final class WeightedHashAssignmentStrategyTest
 
         Assert::true($counts['control'] > 700);
         Assert::true($counts['experiment'] < 300);
+    }
+
+    #[Property(runs: 400)]
+    public function assignAlwaysReturnsOneOfTheVariants(string $salt, string $subjectId, int $w1, int $w2, int $w3): void
+    {
+        $variants = ['control' => $w1, 'green' => $w2, 'blue' => $w3];
+
+        Assert::true(\array_key_exists(
+            $this->strategy->assign(salt: $salt, subjectId: $subjectId, variants: $variants),
+            $variants,
+        ));
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function assignAlwaysReturnsOneOfTheVariantsGenerators(): array
+    {
+        return [
+            'salt' => Gen::stringAscii(),
+            'subjectId' => Gen::stringAscii(),
+            'w1' => Gen::intBetween(1, 100),
+            'w2' => Gen::intBetween(0, 100),
+            'w3' => Gen::intBetween(0, 100),
+        ];
+    }
+
+    #[Property(runs: 400)]
+    public function assignIsDeterministic(string $salt, string $subjectId, int $w1, int $w2): void
+    {
+        $variants = ['a' => $w1, 'b' => $w2];
+
+        Assert::same(
+            $this->strategy->assign(salt: $salt, subjectId: $subjectId, variants: $variants),
+            $this->strategy->assign(salt: $salt, subjectId: $subjectId, variants: $variants),
+        );
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function assignIsDeterministicGenerators(): array
+    {
+        return [
+            'salt' => Gen::stringAscii(),
+            'subjectId' => Gen::stringAscii(),
+            'w1' => Gen::intBetween(1, 100),
+            'w2' => Gen::intBetween(0, 100),
+        ];
+    }
+
+    #[Property(runs: 400)]
+    public function zeroWeightVariantIsNeverAssigned(string $salt, string $subjectId, int $w1, int $w2): void
+    {
+        $variants = ['a' => 0, 'b' => $w1, 'c' => $w2];
+
+        Assert::true($this->strategy->assign(salt: $salt, subjectId: $subjectId, variants: $variants) !== 'a');
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function zeroWeightVariantIsNeverAssignedGenerators(): array
+    {
+        return [
+            'salt' => Gen::stringAscii(),
+            'subjectId' => Gen::stringAscii(),
+            'w1' => Gen::intBetween(1, 100),
+            'w2' => Gen::intBetween(0, 100),
+        ];
+    }
+
+    #[Property(runs: 300)]
+    public function singleVariantIsAlwaysAssigned(string $salt, string $subjectId, int $weight): void
+    {
+        Assert::same(
+            $this->strategy->assign(salt: $salt, subjectId: $subjectId, variants: ['only' => $weight]),
+            'only',
+        );
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function singleVariantIsAlwaysAssignedGenerators(): array
+    {
+        return [
+            'salt' => Gen::stringAscii(),
+            'subjectId' => Gen::stringAscii(),
+            'weight' => Gen::intBetween(1, 100),
+        ];
     }
 }
