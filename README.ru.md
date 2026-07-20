@@ -1,4 +1,5 @@
-# rasuvaeff/yii3-ab-тестирование
+# rasuvaeff/yii3-ab-testing
+
 [![Stable Version](https://img.shields.io/packagist/v/rasuvaeff/yii3-ab-testing.svg)](https://packagist.org/packages/rasuvaeff/yii3-ab-testing)
 [![Total Downloads](https://img.shields.io/packagist/dt/rasuvaeff/yii3-ab-testing.svg)](https://packagist.org/packages/rasuvaeff/yii3-ab-testing)
 [![Build](https://img.shields.io/github/actions/workflow/status/rasuvaeff/yii3-ab-testing/build.yml?branch=master)](https://github.com/rasuvaeff/yii3-ab-testing/actions)
@@ -6,20 +7,29 @@
 [![Psalm Level](https://shepherd.dev/github/rasuvaeff/yii3-ab-testing/level.svg)](https://shepherd.dev/github/rasuvaeff/yii3-ab-testing)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-ab-testing/php)](https://packagist.org/packages/rasuvaeff/yii3-ab-testing)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-ab-testing.svg)](https://github.com/rasuvaeff/yii3-ab-testing/blob/master/LICENSE.md)
-Детерминированное A/B-тестирование приложений Yii3. Назначение без сохранения состояния, взвешенные варианты
-, принудительный вариант для контроля качества, явное отслеживание воздействия/конверсий.
+[English version](README.md)
 
- > Используете помощника по программированию с искусственным интеллектом? [llms.txt](llms.txt) имеет компактную ссылку на API
- > которую можно передать в качестве контекста. @@ЛИНИЯ@@
+Детерминированное A/B-тестирование для приложений на Yii3. Stateless-назначение
+вариантов, взвешенные варианты, форсированный вариант для QA, явное отслеживание
+экспоузов и конверсий.
+
+> Используете AI-ассистента? В [llms.txt](llms.txt) — компактный API-справочник,
+> который можно передать модели как контекст.
+
 ## Требования
-- PHP 8.3+ (64-разрядная версия — хеш-корзина превышает PHP_INT_MAX в 32-разрядных сборках)
+
+- PHP 8.3+ (64-бит — hash-бакет превышает `PHP_INT_MAX` на 32-битных сборках)
 
 ## Установка
+
 ```bash
 composer require rasuvaeff/yii3-ab-testing
 ```
+
 ## Использование
-### Настройка экспериментов
+
+### Конфигурация экспериментов
+
 ```php
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
@@ -39,10 +49,14 @@ $ab = new AbTesting(
     strategy: new WeightedHashAssignmentStrategy(),
 );
 ```
-Определения экспериментов берутся из «ExperimentProvider». `ConfigExperimentProvider`
- считывает статический массив; серверная часть хранилища (например, `yii3-ab-testing-db`) предоставляет поставщика
-, поддерживаемого базой данных, поэтому эксперименты можно переключать во время выполнения без развертывания. @@ЛИНИЯ@@
-### Назначить вариант
+
+Определения экспериментов берутся из `ExperimentProvider`. `ConfigExperimentProvider`
+читает статический массив; storage-backend (например, `yii3-ab-testing-db`) даёт
+провайдера поверх БД, чтобы экспериментами можно было управлять во время выполнения
+без деплоя.
+
+### Назначение варианта
+
 ```php
 $assignment = $ab->assign(experiment: 'checkout-button', subjectId: (string) $userId);
 
@@ -55,13 +69,16 @@ if ($ab->is(experiment: 'checkout-button', variant: 'green', subjectId: (string)
     // Variant-specific logic.
 }
 ```
-Назначение эксперимента, который не определен, вызывает
- `Exception\InvalidExperimentException`; принудительный вариант, которого в эксперименте нет
-, выдает `Exception\InvalidVariantException`. Загруженный набор экспериментов
- можно проверить через `$ab->getRegistry()` — `ExperimentRegistry` с `get()`,
- `has()`, `all()` и `reset()`. Реестр ленив: `ExperimentProvider` запрашивается
- при первом доступе и впоследствии запоминается. @@ЛИНИЯ@@
+
+Назначение неопределённого эксперимента бросает `Exception\InvalidExperimentException`;
+форсирование варианта, которого нет в эксперименте, бросает
+`Exception\InvalidVariantException`. Загруженный набор экспериментов доступен через
+`$ab->getRegistry()` — `ExperimentRegistry` с методами `get()`, `has()`, `all()` и
+`reset()`. Реестр ленивый: `ExperimentProvider` опрашивается при первом доступе,
+далее результат мемоизируется.
+
 ### Форсированный вариант (QA)
+
 ```php
 $assignment = $ab->assign(
     experiment: 'checkout-button',
@@ -69,7 +86,9 @@ $assignment = $ab->assign(
     forcedVariant: 'green',
 );
 ```
-### Отслеживайте показы и конверсии
+
+### Отслеживание экспоузов и конверсий
+
 ```php
 // assign() does NOT auto-track. Call explicitly:
 $ab->trackExposure($assignment);
@@ -77,10 +96,13 @@ $ab->trackExposure($assignment);
 // On conversion event:
 $ab->trackConversion($assignment, goal: 'purchase');
 ```
+
 ### Контекст назначения (необязательно)
-Передайте AssignmentContext для атрибутирования показателей по среде/сегменту. Оно
- переносится в возвращаемое `Назначение` (чтобы трекеры могли его прочитать), но **не**
- не меняет выбранный вариант — выбор варианта остается детерминированным. @@ЛИНИЯ@@
+
+Передайте `AssignmentContext`, чтобы атрибутировать метрики по среде/сегменту. Он
+попадает в возвращаемый `Assignment` (чтобы трекеры могли его прочитать), но **не**
+влияет на выбор варианта — выбор варианта остаётся детерминированным.
+
 ```php
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 
@@ -95,9 +117,11 @@ $assignment = $ab->assign(
 
 $assignment->context?->getEnvironment(); // 'production'
 ```
+
 ### Интеграция с Yii3
+
 Пакет предоставляет `config/params.php` и `config/di.php` через config-plugin.
- Переопределение в вашем приложении:
+Переопределяйте в приложении:
 
 ```php
 // config/params.php
@@ -114,15 +138,18 @@ return [
     ],
 ];
 ```
-Ядро связывает только фасад AbTesting и стандартную
- WeightedHashAssignmentStrategy. Он **не** связывает ни `ExperimentProvider` (источник эксперимента
-), ни `ExposureTracker`/`ConversionTracker` (приемники событий) —
- каждый из этих ключей принадлежит ровно одному источнику, поэтому установка бэкэнда хранилища/трекера
- связывает их без конфликта `Duplate key`. @@ЛИНИЯ@@
-#### Источник эксперимента (обязательно)
-«AbTesting» нуждается в «ExperimentProvider». Без серверной части хранилища привяжите
- `ConfigExperimentProvider` один раз в конфигурации вашего приложения (`config/common/di/*.php`),
-, прочитав параметры `experiments` выше:
+
+Ядро биндит только фасад `AbTesting` и стратегию по умолчанию
+`WeightedHashAssignmentStrategy`. Оно **не** биндит ни `ExperimentProvider`
+(источник экспериментов), ни `ExposureTracker` / `ConversionTracker` (приёмники
+событий) — каждый из этих ключей принадлежит ровно одному источнику, поэтому
+установка storage/tracker backend-а подключает их без конфликта `Duplicate key`.
+
+#### Источник экспериментов (обязательно)
+
+`AbTesting` нужен `ExperimentProvider`. Без storage-backend-а привяжите
+`ConfigExperimentProvider` один раз в конфиге приложения (`config/common/di/*.php`),
+читая параметры `experiments` выше:
 
 ```php
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
@@ -139,14 +166,17 @@ return [
     ],
 ];
 ```
-Установка `yii3-ab-testing-db` привязывает для вас `ExperimentProvider` (с поддержкой базы данных,
-, редактируемый во время выполнения) — затем отмените привязку вручную. Свяжите его из **единственного** источника:
- бэкэнд плюс ручная привязка вновь приводит к конфликту `yiisoft/config` `Duplate key`
-. @@ЛИНИЯ@@
-### Серверы отслеживания (необязательно)
-Чтобы сохранить показы/конверсии, зарегистрируйтесь, привязав интерфейс трекера к реальной реализации
- — либо из специального пакета адаптера, либо один раз в вашей собственной конфигурации приложения
- (`config/common/di/*.php`):
+
+Установка `yii3-ab-testing-db` биндит `ExperimentProvider` за вас (поверх БД,
+редактируемо во время выполнения) — тогда уберите ручной биндинг. Биндите из
+**единственного** источника: backend плюс ручной биндинг вновь приведут к конфликту
+`yiisoft/config` `Duplicate key`.
+
+### Backend-ы отслеживания (необязательно)
+
+Чтобы сохранять экспоузы/конверсии, подключите их, забиндив интерфейс трекера на
+реальную реализацию — либо из специализированного пакета-адаптера, либо один раз в
+конфиге своего приложения (`config/common/di/*.php`):
 
 ```php
 use Rasuvaeff\Yii3AbTesting\ExposureTracker;
@@ -157,10 +187,12 @@ return [
     ConversionTracker::class => MyConversionTracker::class,
 ];
 ```
-Два готовых приемника поставляются в ядре: `LoggerExposureTracker` /
- `LoggerConversionTracker` записывает каждое событие как одну структурированную запись журнала PSR-3
- (нулевая инфраструктура, настраиваемый уровень журнала). Как и любой трекер, они не привязаны
- основным `config/di.php` (правилом одного источника) — привяжите их в конфигурации вашего приложения:
+
+Два готовых приёмника идут в ядре: `LoggerExposureTracker` /
+`LoggerConversionTracker` пишут каждое событие как одну структурированную PSR-3
+лог-запись (нулевая инфраструктура, уровень лога настраивается). Как и все трекеры,
+они не биндятся ядром в `config/di.php` (правило одного источника) — биндите их в
+конфиге приложения:
 
 ```php
 use Psr\Log\LoggerInterface;
@@ -172,11 +204,12 @@ return [
         => new LoggerExposureTracker($logger),
 ];
 ```
-Свяжите каждый интерфейс из **одного** источника. Установка двух адаптеров, которые
- связывают `ExposureTracker` (или серверную часть плюс привязку вручную), повторно приводит к конфликту
- `yiisoft/config` `Duplate key` — выберите один или скомпонуйте их с помощью
- встроенного `CompositeExposureTracker` / `CompositeConversionTracker`, привязанного один раз в
- вашей собственной конфигурации приложения:
+
+Биндите каждый интерфейс из **единственного** источника. Установка двух адаптеров,
+оба из которых биндят `ExposureTracker` (или backend плюс ручной биндинг), вновь
+приводит к конфликту `yiisoft/config` `Duplicate key` — выберите один или
+композируйте их через встроенные `CompositeExposureTracker` /
+`CompositeConversionTracker`, забиндив один раз в конфиге приложения:
 
 ```php
 use Rasuvaeff\Yii3AbTesting\CompositeExposureTracker;
@@ -189,10 +222,11 @@ return [
     ),
 ];
 ```
-Трекеры, которые буферизуют события (например, адаптер ClickHouse), реализуют
- `FlushableTracker`; вызовите `flush()` один раз в конце запроса. Составные трекеры
- тоже реализуют это и передают сброс на каждый сбрасываемый внутренний трекер, поэтому приложение
- может выполнить сброс через интерфейс привязанного трекера:
+
+Трекеры, буферизующие события (например, ClickHouse-адаптер), реализуют
+`FlushableTracker`; вызывайте `flush()` один раз в конце запроса. Композитные
+трекеры тоже реализуют его и пробрасывают flush каждому flushable внутреннему
+трекеру, поэтому приложение может делать flush через привязанный интерфейс трекера:
 
 ```php
 use Rasuvaeff\Yii3AbTesting\FlushableTracker;
@@ -201,10 +235,13 @@ if ($tracker instanceof FlushableTracker) {
     $tracker->flush();
 }
 ```
+
 ### Таргетинг (необязательно)
-Ограничьте эксперимент подмножеством субъектов, прикрепив правило TargetingRule.
- Субъекты, которые не совпадают, получают запасной вариант с `isFallback === true`
- и `isTargetingMismatch === true`. `forcedVariant` обходит таргетинг. @@ЛИНИЯ@@
+
+Ограничьте эксперимент подмножеством субъектов, прикрепив `TargetingRule`. Субъекты,
+которые не прошли проверку, получают fallback-вариант с `isFallback === true` и
+`isTargetingMismatch === true`. `forcedVariant` обходит таргетинг.
+
 ```php
 use Rasuvaeff\Yii3AbTesting\AndTargetingRule;
 use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
@@ -234,19 +271,22 @@ if ($assignment->isTargetingMismatch) {
     // subject not in target segment — received fallback
 }
 ```
+
 Доступные встроенные правила:
 
- | Класс | Соответствует, когда |
- |---|---|
- | `EnvironmentTargetingRule` | `context->getEnvironment()` находится в данном списке |
- | `AttributeTargetingRule` | `context->getAttribute($name) === $value` (строгое) |
- | `AndTargetingRule` | все вложенные правила совпадают (короткое замыкание) |
- | `OrTargetingRule` | хотя бы одно вложенное правило соответствует (короткое замыкание) | @@ЛИНИЯ@@
-### Прикрепленные варианты (необязательно)
-Детерминированное присвоение сохраняет субъект в одном и том же варианте только до тех пор, пока веса
- стабильны; изменение весов или набора вариантов смещает границы корзины, а
- перетасовывает темы. Чтобы закрепить тему за вариантом среди таких изменений, сохраните
- назначение через `AssignmentStore`:
+| Класс | Совпадает, когда |
+|---|---|
+| `EnvironmentTargetingRule` | `context->getEnvironment()` есть в заданном списке |
+| `AttributeTargetingRule` | `context->getAttribute($name) === $value` (строгое сравнение) |
+| `AndTargetingRule` | все вложенные правила совпадают (short-circuit) |
+| `OrTargetingRule` | хотя бы одно вложенное правило совпадает (short-circuit) |
+
+### Sticky-варианты (необязательно)
+
+Детерминированное назначение удерживает субъекта в одном варианте, только пока веса
+стабильны; изменение весов или набора вариантов сдвигает границы бакетов и
+перетасовывает субъектов. Чтобы закрепить субъекта за вариантом при таких
+изменениях, сохраняйте назначение через `AssignmentStore`:
 
 ```php
 interface AssignmentStore {
@@ -254,38 +294,53 @@ interface AssignmentStore {
     public function put(string $experiment, string $subjectId, string $variant): void;
 }
 ```
-`AbTesting::assign()` остается чистым — фиксированное разрешение — это отдельный уровень.
- Реализация файлов cookie/сессий и `SubjectIdMiddleware` для стабильной анонимной идентификации
- поставляется в `yii3-ab-testing-web`. Задание, полученное из хранилища, содержит
- `isSticky = true`, поэтому трекеры могут отличить его от нового детерминированного задания. @@ЛИНИЯ@@
-### Рабочие среды выполнения (RoadRunner, Swoole)
-Набор экспериментов запоминается для каждого экземпляра ExperimentRegistry. В
- долго работающем рабочем процессе служба `AbTesting` сохраняется между запросами, поэтому `config/di.php` ядра
- регистрирует перехват `reset` для
- `StateResetter` `yiisoft/di`: среды выполнения, которые сбрасывают состояние контейнера между запросами, перечитывают
- `ExperimentProvider` при следующем запросе, и в исходном коде включается переключатель уничтожения.
- вступает в силу без перезапуска рабочего процесса. В классическом PHP-FPM ничего не меняется — сервис
- все равно пересобирается для каждого запроса. @@ЛИНИЯ@@
+
+`AbTesting::assign()` остаётся чистым — sticky-разрешение — отдельный слой.
+Cookie/session-реализации и `SubjectIdMiddleware` для стабильной анонимной
+идентификации живут в `yii3-ab-testing-web`. Назначение, отданное из хранилища,
+несёт `isSticky = true`, чтобы трекеры могли отличить его от свежего
+детерминированного.
+
+### Worker-рантаймы (RoadRunner, Swoole)
+
+Набор экспериментов мемоизируется per-instance `ExperimentRegistry`. В долго живущем
+воркере сервис `AbTesting` переживает несколько запросов, поэтому ядро в
+`config/di.php` регистрирует `reset`-хук для `StateResetter` из `yiisoft/di`:
+рантаймы, сбрасывающие состояние контейнера между запросами, перечитывают
+`ExperimentProvider` при следующем запросе, и kill-switch, переключённый в источнике,
+применяется без перезапуска воркера. В классическом PHP-FPM ничего не меняется —
+сервис и так пересоздаётся на каждый запрос.
+
 ## Алгоритм назначения
+
 ```
 digest = sha256(salt + ':' + subjectId)   // 64-char hex
 hash   = hexdec(digest[0:8])             // 32-bit unsigned
 bucket = hash % totalWeight
 ```
-Варианты отсортированы по ключу. Границы совокупного веса определяют назначение. @@ЛИНИЯ@@
+
+Варианты сортируются по ключу. Границы кумулятивных весов определяют назначение.
+
 ### Гарантии
-— Та же соль + subjectId → тот же вариант, навсегда.
- - Изменение `salt` = полное переназначение (преднамеренный сброс).
- - Изменение весов/вариантов смещает границы сегмента (частичное переназначение).
- - Чтобы заморозить когорту, создайте новый эксперимент с новой «солью». @@ЛИНИЯ@@
+
+- Одинаковые `salt` + `subjectId` → один и тот же вариант, всегда.
+- Изменение `salt` = полное переназначение (преднамеренный сброс).
+- Изменение весов/вариантов сдвигает границы бакетов (частичное переназначение).
+- Чтобы зафиксировать когорту, создайте новый эксперимент с новым `salt`.
+
 ## Безопасность
-- Проверены имена экспериментов/вариантов: `/^[a-z][a-z0-9_-]*$/`.
- - Принудительный вариант должен пройти разрешенный список. Неизвестный вариант выдает исключение.
- - Личная информация не сохранена. Трекеры контролируются разработчиками.
- - `assign()`/`is()` являются чистыми — никаких побочных эффектов. @@ЛИНИЯ@@
+
+- Имена экспериментов/вариантов валидируются: `/^[a-z][a-z0-9_-]*$/`.
+- Форсированный вариант должен пройти allow-list. Неизвестный вариант бросает исключение.
+- PII не сохраняются. Трекеры контролируются разработчиком.
+- `assign()`/`is()` чистые — без побочных эффектов.
+
 ## Примеры
-См. [examples/](examples/) для получения полных сценариев использования. @@ЛИНИЯ@@
+
+Полные сценарии использования — в [examples/](examples/).
+
 ## Разработка
+
 ```bash
 make install       # composer install
 make build         # full gate (validate + cs + psalm + test)
@@ -296,7 +351,10 @@ make test-coverage  # run coverage
 make mutation       # mutation testing
 make release-check  # build + rector + bc-check + mutation
 ```
-`make test-coverage` и `makemutation` загружают `pcov` внутри контейнера
- `composer:2`, поскольку базовый образ не имеет драйвера покрытия. @@ЛИНИЯ@@
+
+`make test-coverage` и `make mutation` поднимают `pcov` внутри контейнера
+`composer:2`, потому что в базовом образе нет драйвера покрытия.
+
 ## Лицензия
-BSD-3-пункт. См. [LICENSE.md](LICENSE.md).
+
+BSD-3-Clause. См. [LICENSE.md](LICENSE.md).
