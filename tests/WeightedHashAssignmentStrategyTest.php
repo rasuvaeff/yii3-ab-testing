@@ -187,7 +187,7 @@ final class WeightedHashAssignmentStrategyTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function assignAlwaysReturnsOneOfTheVariantsGenerators(): array
+    public static function assignAlwaysReturnsOneOfTheVariantsGenerators(): array
     {
         return [
             'salt' => Gen::stringAscii(),
@@ -210,7 +210,7 @@ final class WeightedHashAssignmentStrategyTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function assignIsDeterministicGenerators(): array
+    public static function assignIsDeterministicGenerators(): array
     {
         return [
             'salt' => Gen::stringAscii(),
@@ -229,7 +229,7 @@ final class WeightedHashAssignmentStrategyTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function zeroWeightVariantIsNeverAssignedGenerators(): array
+    public static function zeroWeightVariantIsNeverAssignedGenerators(): array
     {
         return [
             'salt' => Gen::stringAscii(),
@@ -249,7 +249,7 @@ final class WeightedHashAssignmentStrategyTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function singleVariantIsAlwaysAssignedGenerators(): array
+    public static function singleVariantIsAlwaysAssignedGenerators(): array
     {
         return [
             'salt' => Gen::stringAscii(),

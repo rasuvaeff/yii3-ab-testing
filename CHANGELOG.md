@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0 — 2026-07-25
+
+- Ship an AI agent skill (`resources/skills/rasuvaeff-yii3-ab-testing/SKILL.md` +
+  `extra.skills` in composer.json): projects using the `llm/skills` Composer
+  plugin get the skill synced into `.agents/skills/` automatically on install.
+- Bump `rasuvaeff/property-testing` dev dependency to `^2.6`.
+- Make property-based generator methods `public static` (rector's
+  `RemoveUnusedPrivateMethodRector` would delete private ones — they are only
+  called via reflection).
+
 ## 1.4.2 — 2026-06-30
 
 - Add `/benchmarks` and `/Makefile` to `.gitattributes` export-ignore.
