@@ -48,6 +48,19 @@ final class ExperimentTest
         );
     }
 
+    public function throwsOnExperimentNameWithTrailingNewline(): void
+    {
+        Expect::exception(InvalidExperimentException::class);
+
+        new Experiment(
+            name: "checkout\n",
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: ['a' => 100],
+        );
+    }
+
     public function throwsOnInvalidVariantName(): void
     {
         Expect::exception(InvalidVariantException::class);

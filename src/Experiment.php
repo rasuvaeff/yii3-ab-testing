@@ -9,7 +9,7 @@ namespace Rasuvaeff\Yii3AbTesting;
  */
 final readonly class Experiment
 {
-    private const string NAME_PATTERN = '/^[a-z][a-z0-9_-]*$/';
+    private const string NAME_PATTERN = '/^[a-z][a-z0-9_-]*\z/';
 
     public string $name;
 

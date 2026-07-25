@@ -75,7 +75,7 @@ make release-check
 
 ## Invariants & gotchas
 
-- Experiment/variant name regex: `/^[a-z][a-z0-9_-]*$/`.
+- Experiment/variant name regex: `/^[a-z][a-z0-9_-]*\z/`.
 - `fallbackVariant` must exist in `variants`. Total weight > 0 — `Experiment`
   validates it, and `WeightedHashAssignmentStrategy` independently throws
   `InvalidArgumentException` when called directly with total weight <= 0.
