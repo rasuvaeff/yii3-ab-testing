@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 — 2026-07-25
+
+- Reject trailing newlines in experiment-name validation: anchor
+  `Experiment::NAME_PATTERN` with `\z` instead of `$` (PCRE `$` matches before
+  a trailing `\n`, which let `"<name>\n"` pass and reach bucketing/trackers).
+
 ## 1.5.0 — 2026-07-25
 
 - Ship an AI agent skill (`resources/skills/rasuvaeff-yii3-ab-testing/SKILL.md` +
