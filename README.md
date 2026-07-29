@@ -98,6 +98,9 @@ $ab->trackExposure($assignment);
 $ab->trackConversion($assignment, goal: 'purchase');
 ```
 
+The conversion goal must contain at least one non-whitespace character. Invalid
+goals are rejected before any tracker is called.
+
 ### Assignment context (optional)
 
 Pass an `AssignmentContext` to attribute metrics by environment/segment. It is
@@ -311,6 +314,11 @@ takes effect without a worker restart. In classic PHP-FPM nothing changes — th
 service is rebuilt per request anyway.
 
 ## Assignment algorithm
+
+This is bucketing algorithm **v1**. Its hash input, digest slice, variant sorting
+and boundary rules are a compatibility contract and will not change in a patch
+or minor release. Any future incompatible algorithm requires an explicit version
+and a major release.
 
 ```
 digest = sha256(salt + ':' + subjectId)   // 64-char hex

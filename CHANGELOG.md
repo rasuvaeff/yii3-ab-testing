@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2 — 2026-07-29
+
+- Reject empty and whitespace-only conversion goals in `AbTesting` before
+  delegating to the configured tracker.
+- Document bucketing algorithm v1 as stable across patch and minor releases.
+
 ## 1.5.1 — 2026-07-25
 
 - Reject trailing newlines in experiment-name validation: anchor
@@ -69,4 +75,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NullExposureTracker` and `NullConversionTracker` for stateless usage.
 - `assign()` and `is()` are pure — no auto-tracking, no side effects.
 - DB/ClickHouse trackers and bridge to `yii3-feature-flags` deferred to adapter packages.
-

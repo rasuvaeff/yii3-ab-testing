@@ -41,7 +41,8 @@ See `yii3-package-plans/yii3-ab-testing-ecosystem.md`.
    `composer build`. "Should work" does not count.
 2. **No suppressions.** No `@psalm-suppress`, no baseline. Fix the root cause.
 3. **Hash stability.** `sha256(salt . ':' . subjectId)`, first 8 hex → 32-bit
-   bucket. Must match `yii3-feature-flags` for future bridge compatibility.
+   bucket. This is bucketing algorithm v1 and must not change in a patch or minor
+   release. It must match `yii3-feature-flags` for future bridge compatibility.
 4. **assign()/is() are pure.** No side effects, no auto-tracking.
 5. **Preserve the public contract.** Update README + tests with any API change.
 
@@ -91,6 +92,8 @@ make release-check
 - Forced variant must be in experiment's variant list.
 - Variants sorted by key before cumulative weight calculation.
 - `assign()` and `is()` never call trackers. Exposure via explicit `trackExposure()`.
+- `AbTesting::trackConversion()` rejects empty and whitespace-only goals before
+  calling the configured tracker. It does not normalize valid goals.
 - `AssignmentContext` (optional `assign()` arg) flows into the returned `Assignment`
   for tracker attribution (environment/attributes). In v1 it does NOT affect variant
   selection — targeting is deferred. Keep it on `assign()` only (`is()` returns bool,
@@ -110,7 +113,7 @@ make release-check
 
 ## When you finish
 
-- Update `README.md` (and `examples/` if usage changed); update `CHANGELOG.md`
-  when releasing.
+- Update `README.md` and `README.ru.md` together (and `examples/` if usage
+  changed); update `CHANGELOG.md` when releasing.
 - Re-run `composer build`; if the change affects the public API or release
   process, also run `make release-check`. Paste the output.

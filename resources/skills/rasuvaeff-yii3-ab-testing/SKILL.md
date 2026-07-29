@@ -21,7 +21,8 @@ Namespace `Rasuvaeff\Yii3AbTesting\`.
    (sha256, first 8 hex, 32-bit bucket). Same subject always gets the same
    variant. Changing the salt re-randomizes the whole experiment; changing
    weights or adding/removing variants shifts bucket boundaries. Never "tweak"
-   a salt on a running experiment.
+   a salt on a running experiment. This is bucketing algorithm v1; patch and
+   minor releases must not change its hash, sorting or boundary rules.
 
 2. **`assign()` / `is()` are pure — no auto-tracking.** Exposures and
    conversions are recorded only via explicit `trackExposure()` /
@@ -42,7 +43,8 @@ Namespace `Rasuvaeff\Yii3AbTesting\`.
 5. **Contracts that throw.** Experiment/variant names must match
    `/^[a-z][a-z0-9_-]*$/`; `fallbackVariant` must be in `variants`; total
    weight must be > 0; a forced variant must be in the variant list; unknown
-   experiment → `InvalidExperimentException`. 64-bit PHP only.
+   experiment → `InvalidExperimentException`; a conversion goal must contain a
+   non-whitespace character. 64-bit PHP only.
 
 ## Canonical usage
 
