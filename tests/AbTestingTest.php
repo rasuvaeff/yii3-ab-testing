@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
+use InvalidArgumentException;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -19,6 +20,7 @@ use Rasuvaeff\Yii3AbTesting\TargetingRule;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
 use Testo\Expect;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
@@ -191,6 +193,24 @@ final class AbTestingTest
         Assert::same($this->conversions[0]['goal'], 'purchase');
     }
 
+    #[DataProvider('emptyConversionGoalProvider')]
+    public function trackConversionRejectsEmptyGoal(string $goal): void
+    {
+        $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
+
+        Expect::exception(InvalidArgumentException::class)
+            ->withMessage('Conversion goal must not be empty');
+
+        $this->abTesting->trackConversion($assignment, goal: $goal);
+    }
+
+    public static function emptyConversionGoalProvider(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'spaces' => ['   '];
+        yield 'whitespace' => ["\t\n"];
+    }
+
     public function getRegistryExposesConfiguredExperiment(): void
     {
         Assert::true($this->abTesting->getRegistry()->has('checkout-button'));
@@ -299,8 +319,8 @@ final class AbTestingTest
     public function disabledExperimentBypassesTargetingCheck(): void
     {
         $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
-        $provider = new class ($rule) implements ExperimentProvider {
-            public function __construct(private readonly AttributeTargetingRule $rule) {}
+        $provider = new readonly class ($rule) implements ExperimentProvider {
+            public function __construct(private AttributeTargetingRule $rule) {}
 
             #[\Override]
             public function getExperiments(): array
@@ -340,8 +360,8 @@ final class AbTestingTest
     private function abTestingWithTargeting(
         TargetingRule $targeting,
     ): AbTesting {
-        $provider = new class ($targeting) implements ExperimentProvider {
-            public function __construct(private readonly TargetingRule $targeting) {}
+        $provider = new readonly class ($targeting) implements ExperimentProvider {
+            public function __construct(private TargetingRule $targeting) {}
 
             #[\Override]
             public function getExperiments(): array

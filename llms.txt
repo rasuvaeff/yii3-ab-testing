@@ -10,7 +10,9 @@ composer require rasuvaeff/yii3-ab-testing
 
 - Experiment/variant names: `/^[a-z][a-z0-9_-]*$/`
 - Hash: `hexdec(substr(sha256(salt . ':' . subjectId), 0, 8))` — 32-bit unsigned
+- Bucketing algorithm v1 is compatibility-stable; patch/minor releases must not change its hash, sorting, or boundaries
 - assign()/is() are pure — no auto-tracking
+- Conversion goal must contain a non-whitespace character; AbTesting rejects invalid goals before calling a tracker
 - Disabled experiment → fallbackVariant
 - Forced variant must be in experiment's variant list
 - AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it

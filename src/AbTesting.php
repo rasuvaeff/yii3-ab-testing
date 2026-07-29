@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting;
 
+use InvalidArgumentException;
+
 /**
  * @api
  */
@@ -58,15 +60,15 @@ final readonly class AbTesting
             );
         }
 
-        if ($exp->targeting !== null
+        if ($exp->targeting instanceof TargetingRule
             && !$exp->targeting->matches($context ?? AssignmentContext::empty())) {
             return new Assignment(
                 experiment: $experiment,
                 variant: $exp->fallbackVariant,
                 subjectId: $subjectId,
                 isFallback: true,
-                isTargetingMismatch: true,
                 context: $context,
+                isTargetingMismatch: true,
             );
         }
 
@@ -104,6 +106,10 @@ final readonly class AbTesting
 
     public function trackConversion(Assignment $assignment, string $goal): void
     {
+        if (trim($goal) === '') {
+            throw new InvalidArgumentException('Conversion goal must not be empty');
+        }
+
         $this->conversionTracker->trackConversion($assignment, goal: $goal);
     }
 
