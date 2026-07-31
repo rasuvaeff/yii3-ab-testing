@@ -116,6 +116,10 @@ final class AbTestingTest
 
         Assert::same($assignment->variant, 'green');
         Assert::true($assignment->isForced);
+        Assert::same(
+            $assignment->configurationId,
+            $this->abTesting->getRegistry()->get('checkout-button')->configurationId,
+        );
     }
 
     public function unknownForcedVariantThrows(): void
@@ -145,6 +149,10 @@ final class AbTestingTest
 
         Assert::same($assignment->variant, 'control');
         Assert::true($assignment->isFallback);
+        Assert::same(
+            $assignment->configurationId,
+            $ab->getRegistry()->get('disabled-test')->configurationId,
+        );
     }
 
     public function isReturnsTrueForMatchingVariant(): void
@@ -163,6 +171,39 @@ final class AbTestingTest
             experiment: 'checkout-button',
             variant: 'control',
             subjectId: 'user-1',
+            forcedVariant: 'green',
+        ));
+    }
+
+    public function resolveImplementsAssignmentResolverContract(): void
+    {
+        $assignment = $this->abTesting->resolve(
+            experiment: 'checkout-button',
+            subjectId: 'user-1',
+            forcedVariant: 'green',
+        );
+
+        Assert::same($assignment->variant, 'green');
+        Assert::true($assignment->isForced);
+    }
+
+    public function isWithContextEvaluatesTargeting(): void
+    {
+        $ab = $this->abTestingWithTargeting(
+            new EnvironmentTargetingRule(environments: ['production']),
+        );
+
+        Assert::true($ab->isWithContext(
+            experiment: 'targeted',
+            variant: 'control',
+            subjectId: 'user-1',
+            context: AssignmentContext::forEnvironment('staging'),
+        ));
+        Assert::false($ab->isWithContext(
+            experiment: 'targeted',
+            variant: 'control',
+            subjectId: 'user-1',
+            context: AssignmentContext::forEnvironment('production'),
             forcedVariant: 'green',
         ));
     }
@@ -227,6 +268,7 @@ final class AbTestingTest
         );
 
         Assert::same($assignment->context, $context);
+        Assert::true(is_string($assignment->configurationId));
     }
 
     public function forcedAssignmentCarriesContext(): void
@@ -273,6 +315,7 @@ final class AbTestingTest
         Assert::same($assignment->variant, 'control');
         Assert::true($assignment->isFallback);
         Assert::true($assignment->isTargetingMismatch);
+        Assert::same($assignment->configurationId, 'targeting-revision');
     }
 
     public function targetingMatchProceedsToNormalAssignment(): void
@@ -374,6 +417,7 @@ final class AbTestingTest
                         fallbackVariant: 'control',
                         variants: ['control' => 50, 'green' => 50],
                         targeting: $this->targeting,
+                        configurationId: 'targeting-revision',
                     ),
                 ];
             }

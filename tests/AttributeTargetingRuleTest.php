@@ -14,6 +14,14 @@ use Testo\Test;
 #[Covers(AttributeTargetingRule::class)]
 final class AttributeTargetingRuleTest
 {
+    public function exposesDefinitionForCodec(): void
+    {
+        $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
+
+        Assert::same($rule->getAttribute(), 'plan');
+        Assert::same($rule->getValue(), 'pro');
+    }
+
     public function matchesWhenStringAttributeEquals(): void
     {
         $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');

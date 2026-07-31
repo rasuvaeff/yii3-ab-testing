@@ -43,6 +43,10 @@ $provider = new ConfigExperimentProvider(config: [
         'salt' => 'checkout-v1',
         'fallbackVariant' => 'control',
         'variants' => ['control' => 50, 'green' => 50],
+        'targeting' => [
+            'type' => 'environment',
+            'values' => ['production'],
+        ],
     ],
 ]);
 
@@ -55,6 +59,9 @@ $ab = new AbTesting(
 Experiment definitions come from an `ExperimentProvider`. `ConfigExperimentProvider`
 reads a static array; a storage backend (e.g. `yii3-ab-testing-db`) supplies a
 database-backed provider so experiments can be toggled at runtime without a deploy.
+Config definitions receive a deterministic `configurationId` hash. Runtime
+providers may pass an explicit string ID (for example, a database revision) to
+`Experiment`; every `Assignment` carries it for analytics and exposure deduplication.
 
 ### Assign variant
 
@@ -104,8 +111,8 @@ goals are rejected before any tracker is called.
 ### Assignment context (optional)
 
 Pass an `AssignmentContext` to attribute metrics by environment/segment. It is
-carried into the returned `Assignment` (so trackers can read it) but does **not**
-change which variant is selected — variant selection stays deterministic.
+carried into the returned `Assignment` so trackers can read it. Context may
+control targeting eligibility, but never changes the deterministic hash bucket.
 
 ```php
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -120,6 +127,12 @@ $assignment = $ab->assign(
 );
 
 $assignment->context?->getEnvironment(); // 'production'
+$ab->isWithContext(
+    experiment: 'checkout-button',
+    variant: 'green',
+    subjectId: (string) $userId,
+    context: $context,
+); // bool
 ```
 
 ### Yii3 integration
@@ -239,6 +252,20 @@ if ($tracker instanceof FlushableTracker) {
 }
 ```
 
+To emit at most one exposure for the same experiment, subject and configuration
+within a request, wrap the real sink with `DeduplicatingExposureTracker`. The
+wrapper has mutable request state: bind it request-scoped, or call `reset()` at
+the request boundary in a long-running worker. It forwards `flush()` to a
+flushable inner sink. `assign()` remains side-effect free.
+
+```php
+use Rasuvaeff\Yii3AbTesting\DeduplicatingExposureTracker;
+
+$tracker = new DeduplicatingExposureTracker(tracker: $realExposureTracker);
+$tracker->trackExposure($assignment);
+$tracker->trackExposure($assignment); // suppressed in this request
+```
+
 ### Targeting (optional)
 
 Restrict an experiment to a subset of subjects by attaching a `TargetingRule`.
@@ -284,6 +311,24 @@ Available built-in rules:
 | `AndTargetingRule` | all nested rules match (short-circuit) |
 | `OrTargetingRule` | at least one nested rule matches (short-circuit) |
 
+`ConfigExperimentProvider` accepts the same tagged arrays used by the DB JSON
+representation (`environment`, `attribute`, `and`, `or`).
+
+```php
+'targeting' => [
+    'type' => 'and',
+    'rules' => [
+        ['type' => 'environment', 'values' => ['production']],
+        ['type' => 'attribute', 'attribute' => 'plan', 'value' => 'pro'],
+    ],
+],
+```
+
+`TargetingRuleCodecRegistry::decode()` and `encode()` provide the shared
+config/DB representation. Register a custom `TargetingRuleCodec` in its
+constructor to add another tagged rule type; custom codecs are checked before
+the built-in codec.
+
 ### Sticky variants (optional)
 
 Deterministic assignment keeps a subject in the same variant only while weights
@@ -302,6 +347,8 @@ interface AssignmentStore {
 Cookie/session implementations and a `SubjectIdMiddleware` for stable anonymous
 identity ship in `yii3-ab-testing-web`. An assignment served from a store carries
 `isSticky = true` so trackers can tell it apart from a fresh deterministic one.
+Both `AbTesting` and the web package's sticky resolver implement
+`AssignmentResolver`, whose `resolve()` signature mirrors `assign()`.
 
 ### Worker runtimes (RoadRunner, Swoole)
 

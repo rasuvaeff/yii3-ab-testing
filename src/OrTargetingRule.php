@@ -31,4 +31,10 @@ final readonly class OrTargetingRule implements TargetingRule
 
         return false;
     }
+
+    /** @return list<TargetingRule> */
+    public function getRules(): array
+    {
+        return $this->rules;
+    }
 }

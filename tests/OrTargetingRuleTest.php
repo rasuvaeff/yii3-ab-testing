@@ -17,6 +17,13 @@ use Testo\Test;
 #[Covers(OrTargetingRule::class)]
 final class OrTargetingRuleTest
 {
+    public function exposesRulesForCodec(): void
+    {
+        $rules = [new AttributeTargetingRule(attribute: 'plan', value: 'pro')];
+
+        Assert::same((new OrTargetingRule(rules: $rules))->getRules(), $rules);
+    }
+
     public function matchesWhenOneRuleMatches(): void
     {
         $rule = new OrTargetingRule(rules: [

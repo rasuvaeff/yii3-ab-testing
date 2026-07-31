@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
+use Rasuvaeff\Yii3AbTesting\AndTargetingRule;
+use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\Experiment;
+use Rasuvaeff\Yii3AbTesting\TargetingRule;
+use Rasuvaeff\Yii3AbTesting\TargetingRuleCodec;
+use Rasuvaeff\Yii3AbTesting\TargetingRuleCodecRegistry;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Test;
@@ -114,5 +119,146 @@ final class ConfigExperimentProviderTest
         ]);
 
         Assert::false($provider->getExperiments()['test']->enabled);
+    }
+
+    public function decodesNestedTargetingRules(): void
+    {
+        $provider = new ConfigExperimentProvider([
+            'targeted' => [
+                'fallbackVariant' => 'control',
+                'variants' => ['control' => 50, 'green' => 50],
+                'targeting' => [
+                    'type' => 'and',
+                    'rules' => [
+                        ['type' => 'environment', 'values' => ['production']],
+                        ['type' => 'attribute', 'attribute' => 'plan', 'value' => 'pro'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $targeting = $provider->getExperiments()['targeted']->targeting;
+
+        Assert::instanceOf($targeting, AndTargetingRule::class);
+        Assert::true($targeting->matches(
+            AssignmentContext::forEnvironment('production')->withAttribute('plan', 'pro'),
+        ));
+    }
+
+    public function derivesStableConfigurationIdIndependentOfMapOrder(): void
+    {
+        $first = new ConfigExperimentProvider([
+            'test' => [
+                'salt' => 'salt',
+                'fallbackVariant' => 'a',
+                'variants' => ['b' => 40, 'a' => 60],
+            ],
+        ]);
+        $second = new ConfigExperimentProvider([
+            'test' => [
+                'variants' => ['a' => 60, 'b' => 40],
+                'fallbackVariant' => 'a',
+                'salt' => 'salt',
+            ],
+        ]);
+
+        Assert::same(
+            $first->getExperiments()['test']->configurationId,
+            $second->getExperiments()['test']->configurationId,
+        );
+    }
+
+    public function configurationIdChangesWithDefinition(): void
+    {
+        $first = new ConfigExperimentProvider([
+            'test' => ['fallbackVariant' => 'a', 'variants' => ['a' => 60, 'b' => 40]],
+        ]);
+        $second = new ConfigExperimentProvider([
+            'test' => ['fallbackVariant' => 'a', 'variants' => ['a' => 50, 'b' => 50]],
+        ]);
+
+        Assert::notSame(
+            $first->getExperiments()['test']->configurationId,
+            $second->getExperiments()['test']->configurationId,
+        );
+    }
+
+    public function acceptsExplicitConfigurationId(): void
+    {
+        $provider = new ConfigExperimentProvider([
+            'test' => [
+                'fallbackVariant' => 'a',
+                'variants' => ['a' => 100],
+                'configurationId' => 'revision-42',
+            ],
+        ]);
+
+        Assert::same($provider->getExperiments()['test']->configurationId, 'revision-42');
+    }
+
+    public function configurationIdSeparatesFloatAndIntegerTargetingValues(): void
+    {
+        $definition = static fn(float|int $value): array => [
+            'test' => [
+                'fallbackVariant' => 'a',
+                'variants' => ['a' => 100],
+                'targeting' => ['type' => 'attribute', 'attribute' => 'score', 'value' => $value],
+            ],
+        ];
+
+        Assert::notSame(
+            (new ConfigExperimentProvider($definition(1.0)))->getExperiments()['test']->configurationId,
+            (new ConfigExperimentProvider($definition(1)))->getExperiments()['test']->configurationId,
+        );
+    }
+
+    public function usesTheInjectedCodecRegistry(): void
+    {
+        $codec = new class implements TargetingRuleCodec {
+            #[\Override]
+            public function supports(string $type): bool
+            {
+                return $type === 'always';
+            }
+
+            #[\Override]
+            public function supportsRule(TargetingRule $rule): bool
+            {
+                return false;
+            }
+
+            #[\Override]
+            public function decode(array $data, \Closure $decode): TargetingRule
+            {
+                return new class implements TargetingRule {
+                    #[\Override]
+                    public function matches(AssignmentContext $context): bool
+                    {
+                        return true;
+                    }
+                };
+            }
+
+            #[\Override]
+            public function encode(TargetingRule $rule, \Closure $encode): array
+            {
+                throw new \LogicException('Not encodable');
+            }
+        };
+
+        $provider = new ConfigExperimentProvider(
+            config: [
+                'test' => [
+                    'fallbackVariant' => 'a',
+                    'variants' => ['a' => 100],
+                    'targeting' => ['type' => 'always'],
+                ],
+            ],
+            targetingCodecs: new TargetingRuleCodecRegistry($codec),
+        );
+
+        Assert::true(
+            $provider->getExperiments()['test']->targeting?->matches(new AssignmentContext()) ?? false,
+        );
     }
 }

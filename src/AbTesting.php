@@ -9,7 +9,7 @@ use InvalidArgumentException;
 /**
  * @api
  */
-final readonly class AbTesting
+final readonly class AbTesting implements AssignmentResolver
 {
     private ExperimentRegistry $registry;
 
@@ -47,6 +47,7 @@ final readonly class AbTesting
                 subjectId: $subjectId,
                 isForced: true,
                 context: $context,
+                configurationId: $exp->configurationId,
             );
         }
 
@@ -57,6 +58,7 @@ final readonly class AbTesting
                 subjectId: $subjectId,
                 isFallback: true,
                 context: $context,
+                configurationId: $exp->configurationId,
             );
         }
 
@@ -69,6 +71,7 @@ final readonly class AbTesting
                 isFallback: true,
                 context: $context,
                 isTargetingMismatch: true,
+                configurationId: $exp->configurationId,
             );
         }
 
@@ -83,6 +86,22 @@ final readonly class AbTesting
             variant: $variant,
             subjectId: $subjectId,
             context: $context,
+            configurationId: $exp->configurationId,
+        );
+    }
+
+    #[\Override]
+    public function resolve(
+        string $experiment,
+        string $subjectId,
+        ?string $forcedVariant = null,
+        ?AssignmentContext $context = null,
+    ): Assignment {
+        return $this->assign(
+            experiment: $experiment,
+            subjectId: $subjectId,
+            forcedVariant: $forcedVariant,
+            context: $context,
         );
     }
 
@@ -96,6 +115,21 @@ final readonly class AbTesting
             experiment: $experiment,
             subjectId: $subjectId,
             forcedVariant: $forcedVariant,
+        )->isVariant($variant);
+    }
+
+    public function isWithContext(
+        string $experiment,
+        string $variant,
+        string $subjectId,
+        AssignmentContext $context,
+        ?string $forcedVariant = null,
+    ): bool {
+        return $this->assign(
+            experiment: $experiment,
+            subjectId: $subjectId,
+            forcedVariant: $forcedVariant,
+            context: $context,
         )->isVariant($variant);
     }
 

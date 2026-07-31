@@ -25,4 +25,10 @@ final readonly class EnvironmentTargetingRule implements TargetingRule
     {
         return in_array($context->getEnvironment(), $this->environments, strict: true);
     }
+
+    /** @return list<string> */
+    public function getEnvironments(): array
+    {
+        return $this->environments;
+    }
 }

@@ -85,4 +85,16 @@ final class AssignmentTest
 
         Assert::same($a->context, $context);
     }
+
+    public function configurationIdIsStored(): void
+    {
+        $a = new Assignment(
+            experiment: 'exp',
+            variant: 'a',
+            subjectId: 'u1',
+            configurationId: 'revision-42',
+        );
+
+        Assert::same($a->configurationId, 'revision-42');
+    }
 }

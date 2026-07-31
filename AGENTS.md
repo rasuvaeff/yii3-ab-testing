@@ -17,6 +17,9 @@ contract; composites propagate it), `NullExposureTracker`,
 `NullConversionTracker`, `LoggerExposureTracker`, `LoggerConversionTracker`
 (built-in PSR-3 sinks), `CompositeExposureTracker`, `CompositeConversionTracker`,
 `AssignmentStore` (sticky-variant contract; implementations ship in adapters).
+`AssignmentResolver` (implemented by `AbTesting` and sticky adapters),
+`TargetingRuleCodec` / `TargetingRuleCodecRegistry` (shared config/DB targeting
+representation), and `DeduplicatingExposureTracker` (request-scoped wrapper).
 
 DI wiring (mirror of `yii3-feature-flags`): core `config/di.php` binds **only**
 `AbTesting` (facade) and `AssignmentStrategy` (the single
@@ -92,6 +95,12 @@ make release-check
 - Forced variant must be in experiment's variant list.
 - Variants sorted by key before cumulative weight calculation.
 - `assign()` and `is()` never call trackers. Exposure via explicit `trackExposure()`.
+- `configurationId` is a string definition identity, separate from an integer DB
+  optimistic-lock revision. Config definitions use a canonical SHA-256 hash;
+  runtime providers may supply a revision-derived string. Propagate it to every
+  `Assignment`, including forced and fallback results.
+- `DeduplicatingExposureTracker` is stateful: bind it request-scoped or call
+  `reset()` between requests. Its key is experiment + subject + configuration ID.
 - `AbTesting::trackConversion()` rejects empty and whitespace-only goals before
   calling the configured tracker. It does not normalize valid goals.
 - `AssignmentContext` (optional `assign()` arg) flows into the returned `Assignment`
