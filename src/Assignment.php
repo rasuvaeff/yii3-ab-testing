@@ -18,6 +18,7 @@ final readonly class Assignment
         public ?AssignmentContext $context = null,
         public bool $isSticky = false,
         public bool $isTargetingMismatch = false,
+        public ?string $configurationId = null,
     ) {}
 
     public function isVariant(string $variant): bool

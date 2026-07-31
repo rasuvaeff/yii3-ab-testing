@@ -12,6 +12,8 @@ composer require rasuvaeff/yii3-ab-testing
 - Hash: `hexdec(substr(sha256(salt . ':' . subjectId), 0, 8))` — 32-bit unsigned
 - Bucketing algorithm v1 is compatibility-stable; patch/minor releases must not change its hash, sorting, or boundaries
 - assign()/is() are pure — no auto-tracking
+- AssignmentResolver::resolve() is the shared deterministic/sticky resolver contract; AbTesting implements it
+- isWithContext() is the context-aware boolean check; existing is() remains context-free
 - Conversion goal must contain a non-whitespace character; AbTesting rejects invalid goals before calling a tracker
 - Disabled experiment → fallbackVariant
 - Forced variant must be in experiment's variant list
@@ -20,6 +22,9 @@ composer require rasuvaeff/yii3-ab-testing
 - Unknown experiment → InvalidExperimentException; unknown forced variant → InvalidVariantException
 - ExperimentRegistry is lazy: provider queried on first access, memoized; reset() re-reads (worker runtimes)
 - Requires 64-bit PHP (hash bucket exceeds PHP_INT_MAX on 32-bit)
+- Config experiments get a canonical SHA-256 configurationId; DB/runtime providers may supply an explicit string ID. Assignment propagates it.
+- DeduplicatingExposureTracker suppresses duplicate (experiment, subjectId, configurationId) exposures within its lifetime; bind request-scoped or reset() per request
+- DeduplicatingExposureTracker implements FlushableTracker and forwards flush() to a flushable delegate
 
 ## API
 
@@ -33,6 +38,7 @@ $exp = new Experiment(
     fallbackVariant: 'control',
     variants: ['control' => 50, 'green' => 50],
     targeting: null, // optional TargetingRule; null = no restriction
+    configurationId: null, // optional source identity; config provider derives a hash
 );
 
 // Targeting rules: restrict experiment to a subset of subjects.
@@ -60,6 +66,10 @@ $provider = new ConfigExperimentProvider(config: [
         'salt' => 'checkout-v1',
         'fallbackVariant' => 'control',
         'variants' => ['control' => 50, 'green' => 50],
+        'targeting' => [
+            'type' => 'environment',
+            'values' => ['production'],
+        ],
     ],
 ]);
 // or a database-backed provider from yii3-ab-testing-db
@@ -81,6 +91,12 @@ $assignment->isForced;      // false
 $assignment->isFallback;    // false
 
 $ab->is(experiment: 'checkout-button', variant: 'green', subjectId: $userId); // bool
+$ab->isWithContext(
+    experiment: 'checkout-button',
+    variant: 'green',
+    subjectId: $userId,
+    context: $context,
+); // bool
 
 // Forced (QA):
 $ab->assign(experiment: 'checkout-button', subjectId: $userId, forcedVariant: 'green');
@@ -100,6 +116,7 @@ $a->isFallback;                // false
 $a->isSticky;                  // false (true when served from an AssignmentStore)
 $a->isTargetingMismatch;       // false (true when subject excluded by TargetingRule)
 $a->context;                   // ?AssignmentContext (null unless passed to assign())
+$a->configurationId;           // ?string definition hash/revision identity
 ```
 
 ### ExperimentRegistry
@@ -115,11 +132,12 @@ $registry->reset();                // drop memo; provider re-read on next access
 ### AssignmentContext (optional)
 
 ```php
-// Carried into Assignment for tracker attribution; does NOT affect variant choice.
+// Carried into Assignment; may affect targeting eligibility, never the hash bucket.
 $ctx = AssignmentContext::forEnvironment('production')->withAttribute('country', 'DE');
 $assignment = $ab->assign(experiment: 'exp', subjectId: 'u1', context: $ctx);
 // getters: getEnvironment(), getAttributes(), getAttribute(name)
 // only assign() takes a context (is() does not)
+// isWithContext() performs the boolean check with context-aware targeting
 ```
 
 ### Trackers
@@ -128,6 +146,11 @@ $assignment = $ab->assign(experiment: 'exp', subjectId: 'u1', context: $ctx);
 interface ExposureTracker {
     public function trackExposure(Assignment $assignment): void;
 }
+
+// Request-scoped exposure deduplication. assign()/resolve() remain pure.
+$deduplicated = new DeduplicatingExposureTracker(tracker: $exposure);
+$deduplicated->trackExposure($assignment);
+$deduplicated->reset(); // request boundary in long-running workers
 
 interface ConversionTracker {
     public function trackConversion(Assignment $assignment, string $goal): void;
@@ -161,7 +184,36 @@ interface AssignmentStore {
     public function get(string $experiment, string $subjectId): ?string;
     public function put(string $experiment, string $subjectId, string $variant): void;
 }
+
+interface AssignmentResolver {
+    public function resolve(
+        string $experiment,
+        string $subjectId,
+        ?string $forcedVariant = null,
+        ?AssignmentContext $context = null,
+    ): Assignment;
+}
 ```
+
+### TargetingRuleCodecRegistry
+
+Shared PHP-config / DB-JSON tagged representation:
+
+```php
+$registry = new TargetingRuleCodecRegistry(codecs: $customCodec);
+$rule = $registry->decode([
+    'type' => 'and',
+    'rules' => [
+        ['type' => 'environment', 'values' => ['production']],
+        ['type' => 'attribute', 'attribute' => 'plan', 'value' => 'pro'],
+    ],
+]);
+$data = $registry->encode($rule); // array<string, mixed>
+```
+
+`TargetingRuleCodec` extension methods: `supports(string $type): bool`,
+`supportsRule(TargetingRule $rule): bool`, `decode(array $data, Closure $decode):
+TargetingRule`, and `encode(TargetingRule $rule, Closure $encode): array`.
 
 ### Yii3 DI config
 

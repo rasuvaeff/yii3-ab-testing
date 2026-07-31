@@ -17,6 +17,13 @@ use Testo\Test;
 #[Covers(AndTargetingRule::class)]
 final class AndTargetingRuleTest
 {
+    public function exposesRulesForCodec(): void
+    {
+        $rules = [new AttributeTargetingRule(attribute: 'plan', value: 'pro')];
+
+        Assert::same((new AndTargetingRule(rules: $rules))->getRules(), $rules);
+    }
+
     public function matchesWhenAllRulesMatch(): void
     {
         $rule = new AndTargetingRule(rules: [

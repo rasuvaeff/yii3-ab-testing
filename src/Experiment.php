@@ -32,6 +32,7 @@ final readonly class Experiment
         string $fallbackVariant,
         array $variants,
         public ?TargetingRule $targeting = null,
+        public ?string $configurationId = null,
     ) {
         $this->validateName($name, 'experiment');
 
@@ -66,6 +67,12 @@ final readonly class Experiment
         if ($totalWeight <= 0) {
             throw new Exception\InvalidExperimentException(
                 message: sprintf('Total weight must be greater than 0 in experiment "%s"', $name),
+            );
+        }
+
+        if ($configurationId === '') {
+            throw new Exception\InvalidExperimentException(
+                message: sprintf('Configuration ID must not be empty in experiment "%s"', $name),
             );
         }
 

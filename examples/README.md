@@ -2,7 +2,7 @@
 
 | Script | Shows | Needs server? |
 |---|---|---|
-| `basic-usage.php` | Creating experiments, assigning variants, tracking | No |
+| `basic-usage.php` | Config targeting and deterministic variant assignment | No |
 
 ## Running
 

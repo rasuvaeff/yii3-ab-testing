@@ -15,6 +15,13 @@ use Testo\Test;
 #[Covers(EnvironmentTargetingRule::class)]
 final class EnvironmentTargetingRuleTest
 {
+    public function exposesEnvironmentsForCodec(): void
+    {
+        $rule = new EnvironmentTargetingRule(environments: ['production', 'staging']);
+
+        Assert::same($rule->getEnvironments(), ['production', 'staging']);
+    }
+
     public function matchesWhenEnvironmentInList(): void
     {
         $rule = new EnvironmentTargetingRule(environments: ['production', 'staging']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
 use Rasuvaeff\Yii3AbTesting\AbTesting;
+use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
 
@@ -14,6 +15,10 @@ $provider = new ConfigExperimentProvider(config: [
         'salt' => 'checkout-v1',
         'fallbackVariant' => 'control',
         'variants' => ['control' => 50, 'green' => 50],
+        'targeting' => [
+            'type' => 'environment',
+            'values' => ['production'],
+        ],
     ],
 ]);
 
@@ -25,7 +30,11 @@ $ab = new AbTesting(
 echo "A/B Testing Assignment:\n\n";
 
 for ($i = 1; $i <= 10; ++$i) {
-    $assignment = $ab->assign(experiment: 'checkout-button', subjectId: (string) $i);
+    $assignment = $ab->assign(
+        experiment: 'checkout-button',
+        subjectId: (string) $i,
+        context: AssignmentContext::forEnvironment('production'),
+    );
     echo sprintf('  user-%d → %s', $i, $assignment->variant);
 
     if ($assignment->isForced) {

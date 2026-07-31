@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Decode targeting trees in `ConfigExperimentProvider` with the extensible,
+  bidirectional `TargetingRuleCodec` / `TargetingRuleCodecRegistry` shared by
+  config and storage backends.
+- Add the `AssignmentResolver` contract, implement it in `AbTesting`, and add
+  context-aware boolean checks through `isWithContext()`.
+- Add optional string `configurationId` to `Experiment` and `Assignment`; config
+  experiments receive a deterministic canonical definition hash.
+- Add request-scoped `DeduplicatingExposureTracker`, keyed by experiment,
+  subject and configuration identity, with an explicit worker `reset()` hook.
+
 ## 1.5.2 — 2026-07-29
 
 - Reject empty and whitespace-only conversion goals in `AbTesting` before

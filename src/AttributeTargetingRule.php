@@ -19,4 +19,14 @@ final readonly class AttributeTargetingRule implements TargetingRule
     {
         return $context->getAttribute($this->attribute) === $this->value;
     }
+
+    public function getAttribute(): string
+    {
+        return $this->attribute;
+    }
+
+    public function getValue(): string|int|float|bool
+    {
+        return $this->value;
+    }
 }

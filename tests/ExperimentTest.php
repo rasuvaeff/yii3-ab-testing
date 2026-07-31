@@ -176,6 +176,35 @@ final class ExperimentTest
         Assert::same($exp->targeting, $rule);
     }
 
+    public function acceptsConfigurationId(): void
+    {
+        $exp = new Experiment(
+            name: 'test',
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: ['a' => 100],
+            configurationId: 'revision-42',
+        );
+
+        Assert::same($exp->configurationId, 'revision-42');
+    }
+
+    public function rejectsEmptyConfigurationId(): void
+    {
+        Expect::exception(InvalidExperimentException::class)
+            ->withMessage('Configuration ID must not be empty in experiment "test"');
+
+        new Experiment(
+            name: 'test',
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: ['a' => 100],
+            configurationId: '',
+        );
+    }
+
     public static function validNameProvider(): iterable
     {
         yield 'simple' => ['checkout'];

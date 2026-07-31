@@ -44,6 +44,10 @@ $provider = new ConfigExperimentProvider(config: [
         'salt' => 'checkout-v1',
         'fallbackVariant' => 'control',
         'variants' => ['control' => 50, 'green' => 50],
+        'targeting' => [
+            'type' => 'environment',
+            'values' => ['production'],
+        ],
     ],
 ]);
 
@@ -57,6 +61,9 @@ $ab = new AbTesting(
 читает статический массив; storage-backend (например, `yii3-ab-testing-db`) даёт
 провайдера поверх БД, чтобы экспериментами можно было управлять во время выполнения
 без деплоя.
+Config-определения получают детерминированный hash `configurationId`. Runtime-
+провайдеры могут передать в `Experiment` явный строковый ID, например revision из
+БД; каждый `Assignment` переносит его для аналитики и дедупликации экспоузов.
 
 ### Назначение варианта
 
@@ -106,8 +113,9 @@ $ab->trackConversion($assignment, goal: 'purchase');
 ### Контекст назначения (необязательно)
 
 Передайте `AssignmentContext`, чтобы атрибутировать метрики по среде/сегменту. Он
-попадает в возвращаемый `Assignment` (чтобы трекеры могли его прочитать), но **не**
-влияет на выбор варианта — выбор варианта остаётся детерминированным.
+попадает в возвращаемый `Assignment`, чтобы трекеры могли его прочитать. Контекст
+может влиять на допуск через targeting, но никогда не меняет детерминированный
+hash-бакет.
 
 ```php
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -122,6 +130,12 @@ $assignment = $ab->assign(
 );
 
 $assignment->context?->getEnvironment(); // 'production'
+$ab->isWithContext(
+    experiment: 'checkout-button',
+    variant: 'green',
+    subjectId: (string) $userId,
+    context: $context,
+); // bool
 ```
 
 ### Интеграция с Yii3
@@ -242,6 +256,21 @@ if ($tracker instanceof FlushableTracker) {
 }
 ```
 
+Чтобы в рамках запроса отправлять не больше одного экспоуза для одной комбинации
+experiment, subject и configuration, оберните настоящий sink в
+`DeduplicatingExposureTracker`. Обёртка хранит mutable request-state: биндите её
+request-scoped либо вызывайте `reset()` на границе запроса в долго живущем воркере.
+Она пробрасывает `flush()` во внутренний flushable sink. `assign()` остаётся без
+побочных эффектов.
+
+```php
+use Rasuvaeff\Yii3AbTesting\DeduplicatingExposureTracker;
+
+$tracker = new DeduplicatingExposureTracker(tracker: $realExposureTracker);
+$tracker->trackExposure($assignment);
+$tracker->trackExposure($assignment); // подавлен в этом запросе
+```
+
 ### Таргетинг (необязательно)
 
 Ограничьте эксперимент подмножеством субъектов, прикрепив `TargetingRule`. Субъекты,
@@ -287,6 +316,23 @@ if ($assignment->isTargetingMismatch) {
 | `AndTargetingRule` | все вложенные правила совпадают (short-circuit) |
 | `OrTargetingRule` | хотя бы одно вложенное правило совпадает (short-circuit) |
 
+`ConfigExperimentProvider` принимает те же tagged-массивы, что используются в
+JSON-представлении БД (`environment`, `attribute`, `and`, `or`).
+
+```php
+'targeting' => [
+    'type' => 'and',
+    'rules' => [
+        ['type' => 'environment', 'values' => ['production']],
+        ['type' => 'attribute', 'attribute' => 'plan', 'value' => 'pro'],
+    ],
+],
+```
+
+`TargetingRuleCodecRegistry::decode()` и `encode()` задают общее представление
+для config/DB. Передайте собственный `TargetingRuleCodec` в конструктор registry,
+чтобы добавить новый tagged-тип; custom codecs проверяются до встроенного.
+
 ### Sticky-варианты (необязательно)
 
 Детерминированное назначение удерживает субъекта в одном варианте, только пока веса
@@ -306,6 +352,8 @@ Cookie/session-реализации и `SubjectIdMiddleware` для стабил
 идентификации живут в `yii3-ab-testing-web`. Назначение, отданное из хранилища,
 несёт `isSticky = true`, чтобы трекеры могли отличить его от свежего
 детерминированного.
+И `AbTesting`, и sticky resolver из web-пакета реализуют `AssignmentResolver`,
+чья сигнатура `resolve()` совпадает с `assign()`.
 
 ### Worker-рантаймы (RoadRunner, Swoole)
 
