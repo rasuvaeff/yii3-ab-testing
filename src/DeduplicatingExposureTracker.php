@@ -31,7 +31,7 @@ final class DeduplicatingExposureTracker implements ExposureTracker, FlushableTr
             ]),
         );
 
-        if (isset($this->tracked[$key])) {
+        if ($this->tracked[$key] ?? false) {
             return;
         }
 

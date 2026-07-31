@@ -158,8 +158,41 @@ final class TargetingRuleCodecRegistryTest
 
     public function rejectsListInsteadOfObject(): void
     {
-        Expect::exception(\InvalidArgumentException::class);
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: expected object, got array');
 
         (new TargetingRuleCodecRegistry())->decode([]);
+    }
+
+    public function rejectsScalarInsteadOfObject(): void
+    {
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: expected object, got string');
+
+        (new TargetingRuleCodecRegistry())->decode('environment');
+    }
+
+    public function rejectsPopulatedListInsteadOfObject(): void
+    {
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: expected object, got array');
+
+        (new TargetingRuleCodecRegistry())->decode([['type' => 'environment']]);
+    }
+
+    public function rejectsNonStringType(): void
+    {
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: "type" must be a non-empty string');
+
+        (new TargetingRuleCodecRegistry())->decode(['type' => 42]);
+    }
+
+    public function rejectsEmptyType(): void
+    {
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: "type" must be a non-empty string');
+
+        (new TargetingRuleCodecRegistry())->decode(['type' => '']);
     }
 }
