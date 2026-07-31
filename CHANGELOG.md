@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.6.0 — 2026-08-01
 
 - Decode targeting trees in `ConfigExperimentProvider` with the extensible,
   bidirectional `TargetingRuleCodec` / `TargetingRuleCodecRegistry` shared by
