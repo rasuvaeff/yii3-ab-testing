@@ -32,6 +32,8 @@ variants, forced variant for QA, explicit exposure/conversion tracking.
 composer require rasuvaeff/yii3-ab-testing
 ```
 
+Upgrading from 1.x? See [UPGRADE.md](UPGRADE.md).
+
 ## Usage
 
 ### Configure experiments

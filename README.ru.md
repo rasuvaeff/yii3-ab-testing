@@ -34,6 +34,8 @@
 composer require rasuvaeff/yii3-ab-testing
 ```
 
+Обновляетесь с 1.x? См. [UPGRADE.md](UPGRADE.md).
+
 ## Использование
 
 ### Конфигурация экспериментов
