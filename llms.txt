@@ -274,6 +274,27 @@ interface AssignmentStore {
     public function put(string $experiment, string $subjectId, string $variant): void;
 }
 
+// Extension for stores that drop a pin when the definition changes. A plain
+// store replays a variant drawn from bucket boundaries that no longer exist;
+// getForConfiguration() returns null when the stored variant belongs to a
+// different configurationId. Implemented by the web cookie store and by
+// DbAssignmentStore. Lives in the core so sibling adapters need not depend on
+// each other.
+interface ConfigurationAwareAssignmentStore extends AssignmentStore {
+    public function getForConfiguration(
+        string $experiment,
+        string $subjectId,
+        ?string $configurationId,
+    ): ?string;
+
+    public function putForConfiguration(
+        string $experiment,
+        string $subjectId,
+        string $variant,
+        ?string $configurationId,
+    ): void;
+}
+
 interface AssignmentResolver {
     public function resolve(
         string $experiment,

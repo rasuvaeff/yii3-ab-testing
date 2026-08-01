@@ -491,6 +491,36 @@ interface AssignmentStore {
 }
 ```
 
+Обычное хранилище закрепляет субъекта навсегда — это верно, пока эксперимент
+стабилен, и неверно сразу после переразвески: субъект остаётся с вариантом,
+взятым по границам, которых больше нет. Хранилища, умеющие различать
+конфигурации, реализуют расширение:
+
+```php
+interface ConfigurationAwareAssignmentStore extends AssignmentStore {
+    public function getForConfiguration(
+        string $experiment,
+        string $subjectId,
+        ?string $configurationId,
+    ): ?string;
+
+    public function putForConfiguration(
+        string $experiment,
+        string $subjectId,
+        string $variant,
+        ?string $configurationId,
+    ): void;
+}
+```
+
+`getForConfiguration()` возвращает null, когда для этой конфигурации ничего не
+сохранено — в том числе когда вариант сохранён для **другой**; именно это
+заставляет переразвеску сбрасывать устаревшие закрепления, а не проигрывать их
+заново. Расширение реализуют и хранилище в подписанной cookie из
+`yii3-ab-testing-web`, и `DbAssignmentStore` из `yii3-ab-testing-db`. Интерфейс
+лежит в ядре, а не в одном из адаптеров, потому что два соседних адаптера не
+должны зависеть друг от друга ради общего контракта.
+
 `AbTesting::assign()` остаётся чистым — sticky-разрешение — отдельный слой.
 Cookie/session-реализации и `SubjectIdMiddleware` для стабильной анонимной
 идентификации живут в `yii3-ab-testing-web`. Назначение, отданное из хранилища,

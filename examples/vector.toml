@@ -5,6 +5,11 @@
 # durable outbox path writes. Nothing in the PHP request touches ClickHouse.
 #
 # Run with: vector --config examples/vector.toml
+#
+# Verified 2026-08-01 against vector 0.41.1: `vector validate` passes (which
+# compiles the VRL), and feeding the real output of log-shipping.php through
+# these transforms yields exactly the canonical row — the exposure is extracted
+# and the conversion is filtered out by the `abort`.
 
 [sources.app_logs]
 type = "file"

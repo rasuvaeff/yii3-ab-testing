@@ -483,6 +483,36 @@ interface AssignmentStore {
 }
 ```
 
+A plain store pins a subject forever — which is right while the experiment is
+stable and wrong the moment it is reweighted, because the subject keeps a variant
+drawn from boundaries that no longer exist. Stores that can tell configurations
+apart implement the extension:
+
+```php
+interface ConfigurationAwareAssignmentStore extends AssignmentStore {
+    public function getForConfiguration(
+        string $experiment,
+        string $subjectId,
+        ?string $configurationId,
+    ): ?string;
+
+    public function putForConfiguration(
+        string $experiment,
+        string $subjectId,
+        string $variant,
+        ?string $configurationId,
+    ): void;
+}
+```
+
+`getForConfiguration()` returns null when nothing is stored **for that
+configuration** — including when a variant is stored for a different one, which
+is what makes a reweight drop stale pins instead of replaying them. Both the
+signed-cookie store in `yii3-ab-testing-web` and `DbAssignmentStore` in
+`yii3-ab-testing-db` implement it. The interface lives here rather than in one
+adapter because two sibling adapters must not depend on each other to share a
+contract.
+
 `AbTesting::assign()` stays pure — sticky resolution is a separate layer.
 Cookie/session implementations and a `SubjectIdMiddleware` for stable anonymous
 identity ship in `yii3-ab-testing-web`. An assignment served from a store carries
