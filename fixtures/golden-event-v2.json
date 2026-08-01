@@ -1,0 +1,67 @@
+{
+    "_comment": "Canonical schema v2 acceptance fixture. Shipped in the package (not export-ignored) so adapters can read it from vendor/rasuvaeff/yii3-ab-testing/fixtures/. Every field is populated on purpose: a serializer that drops one must fail its test. Changing this file changes the public contract — major releases only.",
+    "exposure": {
+        "input": {
+            "eventId": "0198f2c1-4d3a-7c9e-8b21-6f4a2d9e0c17",
+            "occurredAt": "2026-08-01 10:00:00.123",
+            "experiment": "checkout_button",
+            "variant": "b",
+            "subjectId": "b7d3f1a95c2e4408",
+            "reason": "fallback_targeting_mismatch",
+            "source": "store",
+            "experimentRevision": "db:7",
+            "environment": "production",
+            "dimensions": {
+                "plan": "pro",
+                "country": "RU"
+            }
+        },
+        "row": {
+            "v": 2,
+            "event_id": "0198f2c1-4d3a-7c9e-8b21-6f4a2d9e0c17",
+            "occurred_at": "2026-08-01 10:00:00.123",
+            "experiment": "checkout_button",
+            "variant": "b",
+            "subject_id": "b7d3f1a95c2e4408",
+            "decision_reason": "fallback_targeting_mismatch",
+            "assignment_source": "store",
+            "experiment_revision": "db:7",
+            "environment": "production",
+            "dimensions": "{\"country\":\"RU\",\"plan\":\"pro\"}"
+        }
+    },
+    "conversion": {
+        "input": {
+            "eventId": "0198f2c1-9a71-7f04-93cc-1e5b8d7a2f60",
+            "occurredAt": "2026-08-01 10:05:30.456",
+            "experiment": "checkout_button",
+            "variant": "b",
+            "subjectId": "b7d3f1a95c2e4408",
+            "goal": "purchase",
+            "reason": "assigned",
+            "source": "computed",
+            "experimentRevision": "db:7",
+            "environment": "production",
+            "dimensions": {
+                "plan": "pro",
+                "country": "RU"
+            },
+            "exposureEventId": "0198f2c1-4d3a-7c9e-8b21-6f4a2d9e0c17"
+        },
+        "row": {
+            "v": 2,
+            "event_id": "0198f2c1-9a71-7f04-93cc-1e5b8d7a2f60",
+            "occurred_at": "2026-08-01 10:05:30.456",
+            "experiment": "checkout_button",
+            "variant": "b",
+            "subject_id": "b7d3f1a95c2e4408",
+            "goal": "purchase",
+            "decision_reason": "assigned",
+            "assignment_source": "computed",
+            "experiment_revision": "db:7",
+            "environment": "production",
+            "dimensions": "{\"country\":\"RU\",\"plan\":\"pro\"}",
+            "exposure_event_id": "0198f2c1-4d3a-7c9e-8b21-6f4a2d9e0c17"
+        }
+    }
+}

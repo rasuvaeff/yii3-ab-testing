@@ -40,7 +40,7 @@ final class RecordingConversionTracker implements ConversionTracker, FlushableTr
     public function trace(): array
     {
         return array_map(
-            fn (ConversionEvent $event): string => sprintf(
+            fn(ConversionEvent $event): string => sprintf(
                 '%s:%s:%s:%s',
                 $this->name,
                 $event->experiment,

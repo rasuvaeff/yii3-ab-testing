@@ -41,7 +41,7 @@ final class RecordingExposureTracker implements ExposureTracker, FlushableTracke
     public function trace(): array
     {
         return array_map(
-            fn (ExposureEvent $event): string => sprintf('%s:%s:%s', $this->name, $event->experiment, $event->variant),
+            fn(ExposureEvent $event): string => sprintf('%s:%s:%s', $this->name, $event->experiment, $event->variant),
             $this->events,
         );
     }
