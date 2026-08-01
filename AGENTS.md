@@ -77,6 +77,31 @@ make release-check
 `make test-coverage` and `make mutation` bootstrap `pcov` inside the
 `composer:2` container because the base image has no coverage driver.
 
+## Mutation testing
+
+`minMsi` is **99, not 100, and there are no ignored mutators** — the threshold is
+honest rather than propped up by suppressions. Exactly three mutants survive, and
+all three are equivalent under PHP semantics, so no test can kill them:
+
+| Where | Mutation | Why it cannot be killed |
+|---|---|---|
+| `Uuid7EventIdGenerator::generate` | `(int)` cast dropped | `pack('J', $x)` coerces the numeric string exactly as the cast does |
+| `Uuid7EventIdGenerator::generate` | `substr(pack('J', …), 2, 6)` → `2, 7` | the packed string is eight bytes, so asking for seven from offset two still returns six |
+| `AbTesting::trackConversion` | `$exposure?->eventId` → `$exposure->eventId` | reading a property on null is a warning that evaluates to null, not an error |
+
+The null-safe operator and the cast stay: they express intent, and the warning in
+the third case is a real (if minor) production defect.
+
+If a change makes these three disappear, raise `minMsi` back to 100. If a change
+adds a **fourth** escaped mutant, the gate fails at 99 — that is the point.
+Do not ignore mutators to get past it; strengthen the assertion instead.
+
+Two assertions exist purely to kill subtle mutants in the hand-rolled UUIDv7 and
+must not be weakened: `layoutFollowsRfc9562` checks the exact bit layout, and
+`versionAndVariantBytesAreBuiltFromTheirOwnRandomByte` catches a neighbouring
+byte index, which keeps both the format and the entropy valid and shows up only
+as perfect correlation between two byte's random bits.
+
 ## Invariants & gotchas
 
 - Experiment/variant name regex: `/^[a-z][a-z0-9_-]*\z/`.

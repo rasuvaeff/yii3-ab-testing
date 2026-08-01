@@ -267,6 +267,32 @@ final class AbTestingTest
         Assert::null($event->exposureEventId);
     }
 
+    public function conversionCarriesEnvironmentAndDimensionsFromItsContext(): void
+    {
+        $context = AssignmentContext::forEnvironment('production')
+            ->withAttribute('country', 'RU')
+            ->withAttribute('secret', 'leak');
+        $assignment = $this->abTesting->assign(
+            experiment: 'checkout-button',
+            subjectId: 'user-1',
+            context: $context,
+        );
+
+        $event = $this->abTesting->trackConversion($assignment, goal: 'purchase');
+
+        Assert::same($event->environment, 'production');
+        Assert::same($event->dimensions, ['country' => 'RU']);
+    }
+
+    public function conversionWithoutContextHasEmptyEnvironment(): void
+    {
+        $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
+
+        $event = $this->abTesting->trackConversion($assignment, goal: 'purchase');
+
+        Assert::same($event->environment, '');
+    }
+
     public function conversionLinksToTheExposureOfTheSameRequest(): void
     {
         $assignment = $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
@@ -292,6 +318,7 @@ final class AbTestingTest
         Assert::same($conversion->experimentRevision, $receipt->experimentRevision);
         Assert::same($conversion->exposureEventId, 'evt-1');
         Assert::same($conversion->eventId, 'evt-2');
+        Assert::same($this->conversions->events, [$conversion]);
     }
 
     public function conversionForReceiptUsesTheConversionRequestContext(): void

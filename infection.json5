@@ -8,7 +8,11 @@
         "summary": "build/infection-summary.log"
     },
     "testFramework": "testo",
-    "minMsi": 100,
+    // Honest threshold, no ignored mutators. Three mutants are equivalent under
+    // PHP semantics and cannot be killed by any test — see "Mutation testing"
+    // in AGENTS.md for what they are and why. Raise this back to 100 only if
+    // the code changes so those three disappear.
+    "minMsi": 99,
     "mutators": {
         "@default": true
     }

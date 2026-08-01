@@ -34,9 +34,13 @@ final class AllowListAnalyticsContextPolicyTest
         Assert::same($policy->apply($context), ['country' => 'RU']);
     }
 
-    public function missingAttributesAreOmittedRatherThanNulled(): void
+    /**
+     * The missing attribute is listed *first*, so a `continue` that became a
+     * `break` would drop the attribute that follows it.
+     */
+    public function aMissingAttributeDoesNotStopTheOnesAfterIt(): void
     {
-        $policy = new AllowListAnalyticsContextPolicy(allowedAttributes: ['country', 'plan']);
+        $policy = new AllowListAnalyticsContextPolicy(allowedAttributes: ['plan', 'country']);
         $context = AssignmentContext::empty()->withAttribute('country', 'RU');
 
         Assert::same($policy->apply($context), ['country' => 'RU']);
@@ -130,6 +134,21 @@ final class AllowListAnalyticsContextPolicyTest
         yield 'dot' => ['geo.country'];
         yield 'space' => ['country code'];
         yield 'trailing newline' => ["country\n"];
+    }
+
+    /**
+     * The source name is invalid while the rename target is valid, so only the
+     * check on the source name can reject it.
+     */
+    public function rejectsAnInvalidSourceNameEvenWhenItIsRenamedToAValidOne(): void
+    {
+        Expect::exception(InvalidArgumentException::class)
+            ->withMessage('Invalid analytics context field "country-code"');
+
+        new AllowListAnalyticsContextPolicy(
+            allowedAttributes: ['country-code'],
+            renamedAttributes: ['country-code' => 'country'],
+        );
     }
 
     public function rejectsARenameTargetThatIsNotAColumnName(): void
