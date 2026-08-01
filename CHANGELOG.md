@@ -17,6 +17,9 @@
   `AbTesting`.
 - `AbTesting::trackConversionForReceipt()` for a conversion in a later request.
 - `fixtures/golden-event-v2.json`, shipped so adapters can assert the same rows.
+- `ConfigurationAwareAssignmentStore`, moved here from `yii3-ab-testing-web` so
+  the cookie store and the database store can share it without depending on
+  each other.
 
 ### Changed
 

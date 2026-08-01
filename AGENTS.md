@@ -27,7 +27,12 @@ Event contract v2 (added in 2.0): `ExposureEvent`, `ConversionEvent`,
 `CanonicalEventSerializer`, `EventIdGenerator` with `Uuid7EventIdGenerator`
 (default), `SymfonyUidEventIdGenerator` and `RamseyUuidEventIdGenerator`,
 `AnalyticsContextPolicy` / `AllowListAnalyticsContextPolicy`, `SystemClock`,
-`AttributionWindow` and `RepeatedConversionPolicy`.
+`AttributionWindow`, `RepeatedConversionPolicy` and
+`ConfigurationAwareAssignmentStore`.
+
+`ConfigurationAwareAssignmentStore` moved here from `yii3-ab-testing-web` in 2.0:
+both the cookie store and the database store implement it, and sibling adapters
+must not depend on each other to share a contract.
 
 **The row shapes in `EventSerializer` are public API.** Adapters import them with
 `@psalm-import-type`, so renaming a key breaks their static analysis — which is
