@@ -18,12 +18,18 @@ composer require rasuvaeff/yii3-ab-testing
 - Disabled experiment → fallbackVariant
 - Forced variant must be in experiment's variant list
 - AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it
-- ExposureTracker/ConversionTracker default to no-op Null*; core di does NOT bind them. Built-in sinks: Logger* (PSR-3), Null*; bind one in app config
+- ExposureTracker/ConversionTracker take an ExposureEvent/ConversionEvent, NOT an Assignment. Default to no-op Null*; core di does NOT bind them. Built-in sinks: Logger* (PSR-3, emit the canonical schema v2 row under an `event` key = the log-shipping delivery path), Null*; bind one in app config
 - Unknown experiment → InvalidExperimentException; unknown forced variant → InvalidVariantException
 - ExperimentRegistry is lazy: provider queried on first access, memoized; reset() re-reads (worker runtimes)
 - Requires 64-bit PHP (hash bucket exceeds PHP_INT_MAX on 32-bit)
-- Config experiments get a canonical SHA-256 configurationId; DB/runtime providers may supply an explicit string ID. Assignment propagates it.
-- DeduplicatingExposureTracker suppresses duplicate (experiment, subjectId, configurationId) exposures within its lifetime; bind request-scoped or reset() per request
+- Config experiments get a canonical SHA-256 configurationId; DB/runtime providers may supply an explicit string ID. Assignment propagates it; on events it is `experimentRevision`.
+- Assignment has NO boolean flags. Two enums: reason (DecisionReason: assigned|forced|fallback_disabled|fallback_targeting_mismatch) and source (AssignmentSource: computed|store). Methods isForced()/isFallback()/isTargetingMismatch()/isSticky() are derived; they are METHODS, not properties
+- Only DecisionReason::Assigned counts as participation; reports exclude forced and both fallbacks
+- eventId and occurredAt are minted once by the facade and must never be regenerated downstream — eventId is the pipeline's dedup key
+- dimensions serialize as a JSON STRING, not a nested object: the outbox exporter rejects nested payload fields and both delivery paths must produce identical rows
+- Context attributes reach storage only via AnalyticsContextPolicy; the default allows nothing
+- Do NOT write to analytics storage from the request path. Two delivery paths: durable (outbox + worker) and log-shipping (logger sink + Vector/Fluent Bit)
+- DeduplicatingExposureTracker suppresses duplicate (experiment, subjectId, experimentRevision) exposures within its lifetime; bind request-scoped or reset() per request
 - DeduplicatingExposureTracker implements FlushableTracker and forwards flush() to a flushable delegate
 
 ## API
@@ -86,9 +92,11 @@ $ab = new AbTesting(
 );
 
 $assignment = $ab->assign(experiment: 'checkout-button', subjectId: $userId);
-$assignment->variant;       // 'control' or 'green'
-$assignment->isForced;      // false
-$assignment->isFallback;    // false
+$assignment->variant;              // 'control' or 'green'
+$assignment->reason;               // DecisionReason::Assigned
+$assignment->source;               // AssignmentSource::Computed
+$assignment->isForced();           // false — method, not property
+$assignment->isTargetingMismatch();// false
 
 $ab->is(experiment: 'checkout-button', variant: 'green', subjectId: $userId); // bool
 $ab->isWithContext(
@@ -101,20 +109,24 @@ $ab->isWithContext(
 // Forced (QA):
 $ab->assign(experiment: 'checkout-button', subjectId: $userId, forcedVariant: 'green');
 
-// Tracking (explicit):
-$ab->trackExposure($assignment);
-$ab->trackConversion($assignment, goal: 'purchase');
+// Tracking (explicit; both return the recorded event):
+$exposure = $ab->trackExposure($assignment);                    // ExposureEvent
+$ab->trackConversion($assignment, goal: 'purchase', exposure: $exposure);
+// Conversion in a LATER request — carry the receipt, do not re-resolve:
+$ab->trackConversionForReceipt($exposure->receipt(), goal: 'purchase', context: $ctx);
 ```
 
 ### Assignment
 
 ```php
 $a = new Assignment(experiment: 'exp', variant: 'green', subjectId: 'u1');
-$a->isVariant('green');       // true
-$a->isForced;                  // false
-$a->isFallback;                // false
-$a->isSticky;                  // false (true when served from an AssignmentStore)
-$a->isTargetingMismatch;       // false (true when subject excluded by TargetingRule)
+$a->isVariant('green');        // true
+$a->reason;                    // DecisionReason (assigned by default)
+$a->source;                    // AssignmentSource (computed by default)
+$a->isForced();                // METHOD, not property
+$a->isFallback();              // true for either fallback reason
+$a->isTargetingMismatch();     // true when subject excluded by TargetingRule
+$a->isSticky();                // true when served from an AssignmentStore
 $a->context;                   // ?AssignmentContext (null unless passed to assign())
 $a->configurationId;           // ?string definition hash/revision identity
 ```
@@ -144,25 +156,26 @@ $assignment = $ab->assign(experiment: 'exp', subjectId: 'u1', context: $ctx);
 
 ```php
 interface ExposureTracker {
-    public function trackExposure(Assignment $assignment): void;
+    public function trackExposure(ExposureEvent $event): void;
 }
 
 // Request-scoped exposure deduplication. assign()/resolve() remain pure.
 $deduplicated = new DeduplicatingExposureTracker(tracker: $exposure);
-$deduplicated->trackExposure($assignment);
+$deduplicated->trackExposure($event);
 $deduplicated->reset(); // request boundary in long-running workers
 
 interface ConversionTracker {
-    public function trackConversion(Assignment $assignment, string $goal): void;
+    public function trackConversion(ConversionEvent $event): void;
 }
 
 // Built-in sinks (bind one in app config — core di binds none):
 //   NullExposureTracker / NullConversionTracker     — no-op defaults
-//   LoggerExposureTracker / LoggerConversionTracker — one structured PSR-3 record
-//     per event; ctor(LoggerInterface $logger, string $level = LogLevel::INFO)
+//   LoggerExposureTracker / LoggerConversionTracker — the log-shipping path:
+//     one PSR-3 record per event whose context is {'event': <canonical row>};
+//     ctor(LoggerInterface, string $level = LogLevel::INFO, EventSerializer)
 $exposure = new LoggerExposureTracker($psrLogger);
 
-// Buffering sinks (e.g. ClickHouse adapter) implement FlushableTracker;
+// Buffering sinks implement FlushableTracker (no in-family implementation left;
 // call flush() once at request end.
 interface FlushableTracker {
     public function flush(): void;
@@ -173,6 +186,82 @@ interface FlushableTracker {
 // Composites implement FlushableTracker and propagate flush() to flushable inners.
 $exposure = new CompositeExposureTracker($trackerA, $trackerB);
 $conversion = new CompositeConversionTracker($trackerA, $trackerB);
+```
+
+### Events (schema v2)
+
+```php
+// Built by the facade; sinks receive these, never an Assignment.
+final readonly class ExposureEvent {
+    public string $eventId;                 // non-empty; the pipeline dedup key
+    public DateTimeImmutable $occurredAt;   // normalised to UTC on construction
+    public string $experiment, $variant, $subjectId;
+    public DecisionReason $reason;
+    public AssignmentSource $source;
+    public ?string $experimentRevision;     // null = unknown, never ''
+    public string $environment;             // '' = no context (legitimate)
+    public array $dimensions;               // array<non-empty-string, scalar>
+    public function isAnalyzable(): bool;   // reason === Assigned
+    public function receipt(): AssignmentReceipt;
+}
+// ConversionEvent: same fields + string $goal + ?string $exposureEventId.
+// Blank values throw InvalidArgumentException: 'Event field "goal" must not be empty'.
+
+// Receipt travels in a cookie/session so a later conversion keeps the variant
+// the visitor actually saw. Small on purpose: no environment, no dimensions.
+$receipt->toArray();                        // ['eid','at','e','v','s','r','src','rev']
+AssignmentReceipt::fromArray($data);        // re-validates everything; never trusts input
+```
+
+### EventSerializer
+
+```php
+// The single wire format. Row shapes are published as importable Psalm types:
+//   @psalm-import-type AbExposureRow from EventSerializer
+// Adapters import them, so a renamed field breaks their psalm — treat the
+// aliases as public API: major releases only (roave cannot see docblocks).
+$row = (new CanonicalEventSerializer())->exposure($event);
+// ['v'=>2,'event_id'=>…,'occurred_at'=>'Y-m-d H:i:s.v','experiment'=>…,'variant'=>…,
+//  'subject_id'=>…,'decision_reason'=>…,'assignment_source'=>…,
+//  'experiment_revision'=>string(''=absent),'environment'=>string,'dimensions'=>'{}']
+// conversion() adds 'goal' and 'exposure_event_id'.
+// Every value scalar; dimension keys sorted for byte-reproducible output.
+```
+
+### Event identifiers
+
+```php
+interface EventIdGenerator { public function generate(): string; }
+// Uuid7EventIdGenerator   — default, no dependencies, ctor(ClockInterface).
+//   SystemClock is the default PSR-20 clock (UTC); inject a fixed one in tests.
+// SymfonyUidEventIdGenerator — needs symfony/uid    (suggest)
+// RamseyUuidEventIdGenerator — needs ramsey/uuid    (suggest)
+// No auto-detection: bind the one you want. Format is NOT part of the contract
+// (ULID/snowflake fine) — the analytics column is a String, not a UUID.
+// Ordering holds between milliseconds, not within one.
+```
+
+### Analytics dimensions
+
+```php
+interface AnalyticsContextPolicy { public function apply(?AssignmentContext $c): array; }
+new AllowListAnalyticsContextPolicy(
+    allowedAttributes: ['country', 'user'],
+    renamedAttributes: ['country' => 'geo'],   // stored column name
+    redactedAttributes: ['user'],              // column kept, value '[redacted]'
+);
+// Default construction allows NOTHING. Unlisted attributes are dropped, not redacted.
+// Identifiers must match /^[A-Za-z_]\w*\z/; duplicate destinations throw.
+```
+
+### Attribution contract
+
+```php
+AttributionWindow::default();          // 7 days; ofDays(int) / ofSeconds(int); positive only
+RepeatedConversionPolicy::FirstOnly;   // default: one per (subject, goal, experiment, revision)
+RepeatedConversionPolicy::All;         // count every conversion (value metrics)
+// Reports count only DecisionReason::Assigned; a subject with two variants in one
+// revision is excluded as a data-quality signal, never silently reduced to the first.
 ```
 
 ### AssignmentStore (sticky variant, optional)
@@ -197,7 +286,9 @@ interface AssignmentResolver {
 
 ### TargetingRuleCodecRegistry
 
-Shared PHP-config / DB-JSON tagged representation:
+Shared PHP-config / DB-JSON tagged representation. The registry ships with
+`BuiltInTargetingRuleCodec` (environment, attribute, and/or) and takes extra
+codecs variadically:
 
 ```php
 $registry = new TargetingRuleCodecRegistry(codecs: $customCodec);

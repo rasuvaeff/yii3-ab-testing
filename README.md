@@ -95,18 +95,130 @@ $assignment = $ab->assign(
 );
 ```
 
+### Why this variant: decision reason and source
+
+Every `Assignment` answers two independent questions.
+
+| Question | Field | Values |
+|---|---|---|
+| Why this variant rather than the hash bucket? | `reason` | `assigned`, `forced`, `fallback_disabled`, `fallback_targeting_mismatch` |
+| Where did the value come from? | `source` | `computed`, `store` |
+
+They are separate on purpose: a sticky-served forced variant is a legitimate
+combination, and a disabled experiment must stay distinguishable from a
+targeting miss — with a single flag both look like "fallback".
+
+```php
+use Rasuvaeff\Yii3AbTesting\AssignmentSource;
+use Rasuvaeff\Yii3AbTesting\DecisionReason;
+
+$assignment->reason === DecisionReason::FallbackTargetingMismatch;
+$assignment->source === AssignmentSource::Store;
+
+// Derived checks where the meaning is unambiguous:
+$assignment->isForced();
+$assignment->isFallback();
+$assignment->isTargetingMismatch();
+$assignment->isSticky();
+```
+
+Only `assigned` counts as experiment participation; reports exclude everything
+else. `DecisionReason::isAnalyzable()` states that rule in code.
+
 ### Track exposure and conversion
 
 ```php
 // assign() does NOT auto-track. Call explicitly:
-$ab->trackExposure($assignment);
+$exposure = $ab->trackExposure($assignment);
 
-// On conversion event:
-$ab->trackConversion($assignment, goal: 'purchase');
+// On conversion in the same request, link it to the exposure:
+$ab->trackConversion($assignment, goal: 'purchase', exposure: $exposure);
 ```
 
-The conversion goal must contain at least one non-whitespace character. Invalid
-goals are rejected before any tracker is called.
+Both methods return the event they recorded — an `ExposureEvent` or a
+`ConversionEvent` carrying `eventId`, `occurredAt`, the decision, the experiment
+revision, the environment and the allow-listed dimensions. The identifier is the
+deduplication key of the whole pipeline: a delivery retried after an uncertain
+outcome carries the same value, so storage collapses the duplicate.
+
+The conversion goal must contain at least one non-whitespace character; an
+invalid goal is rejected when the event is constructed, before any tracker runs.
+
+### Conversion in a later request
+
+Re-resolving the assignment at conversion time can return a different variant
+than the visitor saw — a reweight or a salt change in between is enough. Carry a
+receipt instead:
+
+```php
+$receipt = $exposure->receipt();
+$_SESSION['ab_receipt'] = $receipt->toArray(); // or a signed cookie
+
+// … a later request …
+
+$receipt = AssignmentReceipt::fromArray($_SESSION['ab_receipt']);
+$ab->trackConversionForReceipt($receipt, goal: 'purchase', context: $context);
+```
+
+`AssignmentReceipt` is deliberately small — it holds no environment or
+dimensions, because it travels in size-capped cookies and a conversion records
+the context of its own request anyway. `fromArray()` re-validates every field:
+transport data is never trusted, and unknown enum values are rejected.
+
+### Analytics dimensions
+
+Context attributes reach storage only through an `AnalyticsContextPolicy`. The
+default allows nothing, so an attribute added for targeting cannot leak into
+analytics by accident.
+
+```php
+use Rasuvaeff\Yii3AbTesting\AllowListAnalyticsContextPolicy;
+
+new AllowListAnalyticsContextPolicy(
+    allowedAttributes: ['country', 'plan', 'user'],
+    renamedAttributes: ['country' => 'geo'],  // stored column name
+    redactedAttributes: ['user'],             // kept as a column, value masked
+);
+```
+
+Anything not listed is dropped, not redacted. Redaction keeps the column and
+replaces the value with `[redacted]`.
+
+### Event identifiers
+
+`EventIdGenerator` mints the event identity. The default `Uuid7EventIdGenerator`
+has no dependencies, so the package works straight after `composer require`, and
+UUIDv7 sorts by time — useful as a storage sort prefix. Adapters for the two
+common libraries ship alongside it:
+
+| Generator | Requires |
+|---|---|
+| `Uuid7EventIdGenerator` (default) | nothing |
+| `SymfonyUidEventIdGenerator` | `symfony/uid` |
+| `RamseyUuidEventIdGenerator` | `ramsey/uuid` |
+
+Nothing is selected automatically — bind the one you want. The format is not part
+of the contract: the interface returns a string and the analytics column is a
+string, so ULIDs, snowflakes or your own keys are equally valid.
+
+### Attribution contract
+
+Reporting lives in the analytics package, but the rules that decide what the
+numbers *mean* are fixed here so every backend answers the same way.
+
+```php
+use Rasuvaeff\Yii3AbTesting\AttributionWindow;
+use Rasuvaeff\Yii3AbTesting\RepeatedConversionPolicy;
+
+AttributionWindow::default();      // 7 days
+AttributionWindow::ofDays(14);
+RepeatedConversionPolicy::FirstOnly; // default: one per subject, goal, revision
+RepeatedConversionPolicy::All;       // count every conversion (value metrics)
+```
+
+A conversion counts for an exposure when it happens within the window after it.
+`FirstOnly` is the default because conversion rate is a share of subjects: one
+visitor converting ten times must not outweigh ten visitors converting once.
 
 ### Assignment context (optional)
 
@@ -189,6 +301,30 @@ runtime-editable) — drop the manual binding then. Bind it from a **single** so
 a backend plus a manual binding reintroduces the `yiisoft/config` `Duplicate key`
 conflict.
 
+### Delivering events
+
+Two delivery paths are supported, and both produce the **same rows**:
+
+| Path | How | Trade-off |
+|---|---|---|
+| **Durable** | `yii3-ab-testing-outbox` → exporter → ClickHouse | survives an analytics outage; needs a table and a worker |
+| **Log shipping** | core's logger sinks → Vector / Fluent Bit / Kafka | no worker, no request-time network call; delivery is the collector's job |
+
+Do **not** write to analytics storage from the request path. Under PHP-FPM a
+per-request insert means many tiny writes and a network call inside the user's
+latency — that is why the direct ClickHouse writer was removed in 2.0.
+
+`CanonicalEventSerializer` produces the wire format both paths share, and the
+logger sinks emit exactly its output under an `event` key:
+
+```json
+{"level":"info","message":"A/B test exposure","event":{"v":2,"event_id":"…","occurred_at":"2026-08-01 10:00:00.123","experiment":"checkout_button","variant":"b","subject_id":"…","decision_reason":"assigned","assignment_source":"computed","experiment_revision":"db:7","environment":"production","dimensions":"{\"country\":\"RU\"}"}}
+```
+
+Every value is scalar, and `dimensions` is a JSON **string** rather than a nested
+object — the outbox exporter rejects nested payload fields, and the two paths must
+stay byte-identical. A runnable collector config is in `examples/vector.toml`.
+
 ### Tracking backends (optional)
 
 To persist exposures/conversions, opt in by binding the tracker interface to a
@@ -233,13 +369,13 @@ use Rasuvaeff\Yii3AbTesting\ExposureTracker;
 
 return [
     ExposureTracker::class => static fn (): ExposureTracker => new CompositeExposureTracker(
-        new ClickHouseExposureTracker(/* ... */),
+        new OutboxExposureTracker(/* ... */),
         new LoggerExposureTracker(/* ... */),
     ),
 ];
 ```
 
-Trackers that buffer events (e.g. the ClickHouse adapter) implement
+Trackers that buffer events implement
 `FlushableTracker`; call `flush()` once at request end. The composite trackers
 implement it too and propagate the flush to every flushable inner tracker, so the
 application can flush through the bound tracker interface:
@@ -270,7 +406,7 @@ $tracker->trackExposure($assignment); // suppressed in this request
 
 Restrict an experiment to a subset of subjects by attaching a `TargetingRule`.
 Subjects that don't match receive the fallback variant with `isFallback === true`
-and `isTargetingMismatch === true`. `forcedVariant` bypasses targeting.
+and `isTargetingMismatch()` true. `forcedVariant` bypasses targeting.
 
 ```php
 use Rasuvaeff\Yii3AbTesting\AndTargetingRule;
@@ -297,7 +433,7 @@ $assignment = $abTesting->assign(
     context: new AssignmentContext(environment: 'production', attributes: ['plan' => 'pro']),
 );
 
-if ($assignment->isTargetingMismatch) {
+if ($assignment->isTargetingMismatch()) {
     // subject not in target segment — received fallback
 }
 ```

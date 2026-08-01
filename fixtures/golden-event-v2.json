@@ -1,5 +1,4 @@
 {
-    "_comment": "Canonical schema v2 acceptance fixture. Shipped in the package (not export-ignored) so adapters can read it from vendor/rasuvaeff/yii3-ab-testing/fixtures/. Every field is populated on purpose: a serializer that drops one must fail its test. Changing this file changes the public contract — major releases only.",
     "exposure": {
         "input": {
             "eventId": "0198f2c1-4d3a-7c9e-8b21-6f4a2d9e0c17",
