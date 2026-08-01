@@ -18,6 +18,10 @@ variants, forced variant for QA, explicit exposure/conversion tracking.
 > plugin also get this package's agent skill synced into `.agents/skills/`
 > automatically on install.
 
+> **Assembling a combination?** [docs/integration.md](docs/integration.md)
+> walks the eight axes — where definitions live, how events reach analytics,
+> who the subject is, stickiness, SSR vs SPA, operations, reading results.
+
 ## Requirements
 
 - PHP 8.3+ (64-bit — the hash bucket exceeds `PHP_INT_MAX` on 32-bit builds)
