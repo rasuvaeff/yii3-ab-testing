@@ -57,8 +57,10 @@ final class DeduplicatingExposureTrackerTest
 
     public function deduplicatesWhenRevisionIsUnknown(): void
     {
-        $first = Events::exposure(eventId: 'evt-1', experimentRevision: null);
-        $second = Events::exposure(eventId: 'evt-2', experimentRevision: null);
+        // The builder defaults experimentRevision to null, which is the case
+        // under test: a missing revision must still produce one stable key.
+        $first = Events::exposure(eventId: 'evt-1');
+        $second = Events::exposure(eventId: 'evt-2');
 
         $this->tracker->trackExposure($first);
         $this->tracker->trackExposure($second);

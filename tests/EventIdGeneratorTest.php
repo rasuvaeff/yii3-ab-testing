@@ -28,7 +28,7 @@ final class EventIdGeneratorTest
     #[DataProvider('generatorProvider')]
     public function producesAWellFormedUuid7(EventIdGenerator $generator): void
     {
-        Assert::true(self::isUuid7($generator->generate()));
+        Assert::true($this->isUuid7($generator->generate()));
     }
 
     #[DataProvider('generatorProvider')]
@@ -104,7 +104,7 @@ final class EventIdGeneratorTest
 
         $id = (new Uuid7EventIdGenerator(clock: $clock))->generate();
 
-        Assert::true(self::isUuid7($id));
+        Assert::true($this->isUuid7($id));
     }
 
     /** @return array<string, ArbitraryInterface> */
@@ -121,14 +121,14 @@ final class EventIdGeneratorTest
     public function layoutFollowsRfc9562(): void
     {
         $clock = new FixedClock('2026-08-01 10:00:00.123');
-        $samples = self::sample(new Uuid7EventIdGenerator(clock: $clock), 200);
+        $samples = $this->sample(new Uuid7EventIdGenerator(clock: $clock), 200);
         $expectedMilliseconds = (int) $clock->now()->format('Uv');
 
         foreach ($samples as $bytes) {
             Assert::same(\strlen($bytes), 16);
-            Assert::same(self::bits($bytes, 0, 48), $expectedMilliseconds);
-            Assert::same(self::bits($bytes, 48, 4), 7);
-            Assert::same(self::bits($bytes, 64, 2), 0b10);
+            Assert::same($this->bits($bytes, 0, 48), $expectedMilliseconds);
+            Assert::same($this->bits($bytes, 48, 4), 7);
+            Assert::same($this->bits($bytes, 64, 2), 0b10);
         }
     }
 
@@ -140,19 +140,19 @@ final class EventIdGeneratorTest
     public function randomBitsVaryAndTimestampBitsDoNot(): void
     {
         $generator = new Uuid7EventIdGenerator(clock: new FixedClock('2026-08-01 10:00:00.123'));
-        $samples = self::sample($generator, 200);
+        $samples = $this->sample($generator, 200);
 
         foreach (range(52, 63) as $bit) {
-            Assert::same(self::distinctValuesOfBit($samples, $bit), 2, sprintf('rand_a bit %d must vary', $bit));
+            Assert::same($this->distinctValuesOfBit($samples, $bit), 2, sprintf('rand_a bit %d must vary', $bit));
         }
 
         foreach (range(66, 127) as $bit) {
-            Assert::same(self::distinctValuesOfBit($samples, $bit), 2, sprintf('rand_b bit %d must vary', $bit));
+            Assert::same($this->distinctValuesOfBit($samples, $bit), 2, sprintf('rand_b bit %d must vary', $bit));
         }
 
         foreach (range(0, 47) as $bit) {
             Assert::same(
-                self::distinctValuesOfBit($samples, $bit),
+                $this->distinctValuesOfBit($samples, $bit),
                 1,
                 sprintf('timestamp bit %d must not vary under a fixed clock', $bit),
             );
@@ -167,22 +167,22 @@ final class EventIdGeneratorTest
      */
     public function versionAndVariantBytesAreBuiltFromTheirOwnRandomByte(): void
     {
-        $samples = self::sample(new Uuid7EventIdGenerator(clock: new FixedClock()), 200);
+        $samples = $this->sample(new Uuid7EventIdGenerator(clock: new FixedClock()), 200);
 
         // rand_a's low nibble (byte 6) against the byte that follows it.
-        Assert::false(self::alwaysEqual($samples, 52, 60, 4), 'byte 6 must not mirror byte 7');
+        Assert::false($this->alwaysEqual($samples, 52, 60, 4), 'byte 6 must not mirror byte 7');
         // rand_b's first six bits (byte 8) against its neighbours.
-        Assert::false(self::alwaysEqual($samples, 66, 74, 6), 'byte 8 must not mirror byte 9');
-        Assert::false(self::alwaysEqual($samples, 66, 58, 6), 'byte 8 must not mirror byte 7');
+        Assert::false($this->alwaysEqual($samples, 66, 74, 6), 'byte 8 must not mirror byte 9');
+        Assert::false($this->alwaysEqual($samples, 66, 58, 6), 'byte 8 must not mirror byte 7');
     }
 
     /**
      * @param list<string> $samples
      */
-    private static function alwaysEqual(array $samples, int $leftOffset, int $rightOffset, int $length): bool
+    private function alwaysEqual(array $samples, int $leftOffset, int $rightOffset, int $length): bool
     {
         foreach ($samples as $bytes) {
-            if (self::bits($bytes, $leftOffset, $length) !== self::bits($bytes, $rightOffset, $length)) {
+            if ($this->bits($bytes, $leftOffset, $length) !== $this->bits($bytes, $rightOffset, $length)) {
                 return false;
             }
         }
@@ -201,14 +201,14 @@ final class EventIdGeneratorTest
     /**
      * @return list<string> raw 16-byte forms
      */
-    private static function sample(Uuid7EventIdGenerator $generator, int $count): array
+    private function sample(Uuid7EventIdGenerator $generator, int $count): array
     {
         $samples = [];
 
         for ($i = 0; $i < $count; ++$i) {
             $binary = hex2bin(str_replace('-', '', $generator->generate()));
             Assert::true($binary !== false);
-            $samples[] = (string) $binary;
+            $samples[] = $binary;
         }
 
         return $samples;
@@ -217,18 +217,18 @@ final class EventIdGeneratorTest
     /**
      * @param list<string> $samples
      */
-    private static function distinctValuesOfBit(array $samples, int $bit): int
+    private function distinctValuesOfBit(array $samples, int $bit): int
     {
         $seen = [];
 
         foreach ($samples as $bytes) {
-            $seen[self::bits($bytes, $bit, 1)] = true;
+            $seen[$this->bits($bytes, $bit, 1)] = true;
         }
 
         return \count($seen);
     }
 
-    private static function bits(string $bytes, int $offset, int $length): int
+    private function bits(string $bytes, int $offset, int $length): int
     {
         $value = 0;
 
@@ -240,7 +240,7 @@ final class EventIdGeneratorTest
         return $value;
     }
 
-    private static function isUuid7(string $id): bool
+    private function isUuid7(string $id): bool
     {
         return preg_match(self::UUID7_PATTERN, $id) === 1;
     }

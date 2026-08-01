@@ -118,11 +118,8 @@ final class CanonicalEventSerializerTest
 
     public function absentOptionalValuesBecomeEmptyStrings(): void
     {
-        $exposure = $this->serializer->exposure(Events::exposure(experimentRevision: null));
-        $conversion = $this->serializer->conversion(Events::conversion(
-            experimentRevision: null,
-            exposureEventId: null,
-        ));
+        $exposure = $this->serializer->exposure(Events::exposure());
+        $conversion = $this->serializer->conversion(Events::conversion());
 
         Assert::same($exposure['experiment_revision'], '');
         Assert::same($conversion['experiment_revision'], '');

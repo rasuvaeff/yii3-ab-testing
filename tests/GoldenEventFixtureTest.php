@@ -41,7 +41,7 @@ final class GoldenEventFixtureTest
         Assert::true($contents !== false, 'Golden fixture must ship with the package');
 
         /** @var array{exposure: array{input: array<string, mixed>, row: array<string, mixed>}, conversion: array{input: array<string, mixed>, row: array<string, mixed>}} $decoded */
-        $decoded = json_decode((string) $contents, true, flags: JSON_THROW_ON_ERROR);
+        $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
         $this->fixture = $decoded;
     }
 
@@ -116,7 +116,7 @@ final class GoldenEventFixtureTest
 
         return new ExposureEvent(
             eventId: $input['eventId'],
-            occurredAt: self::time($input['occurredAt']),
+            occurredAt: $this->time($input['occurredAt']),
             experiment: $input['experiment'],
             variant: $input['variant'],
             subjectId: $input['subjectId'],
@@ -135,7 +135,7 @@ final class GoldenEventFixtureTest
 
         return new ConversionEvent(
             eventId: $input['eventId'],
-            occurredAt: self::time($input['occurredAt']),
+            occurredAt: $this->time($input['occurredAt']),
             experiment: $input['experiment'],
             variant: $input['variant'],
             subjectId: $input['subjectId'],
@@ -149,7 +149,7 @@ final class GoldenEventFixtureTest
         );
     }
 
-    private static function time(string $value): DateTimeImmutable
+    private function time(string $value): DateTimeImmutable
     {
         return new DateTimeImmutable($value, new DateTimeZone('UTC'));
     }

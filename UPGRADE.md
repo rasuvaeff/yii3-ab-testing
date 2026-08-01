@@ -70,6 +70,21 @@ switch, `DecisionReason::FallbackTargetingMismatch` for a targeting miss. In 1.x
 both were `isFallback: true` and indistinguishable downstream — that was the
 defect this release closes.
 
+**If you construct `Assignment` positionally, read this twice.** The parameter
+list changed shape, so old positional calls now land on different parameters:
+
+| Position | 1.x | 2.0 |
+|---|---|---|
+| 4 | `bool $isForced` | `DecisionReason $reason` |
+| 5 | `bool $isFallback` | `AssignmentSource $source` |
+| 6 | `?AssignmentContext $context` | `?AssignmentContext $context` |
+| 7 | `bool $isSticky` | `?string $configurationId` |
+| 8 | `bool $isTargetingMismatch` | — |
+
+Positions 4, 5 and 7 fail loudly with a `TypeError`, which is what you want. Use
+named arguments — the whole codebase does, precisely so that a reordering is a
+compile-time problem rather than a silent one.
+
 ### Tracking methods return the event
 
 ```php
