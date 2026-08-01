@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use Psr\Log\LogLevel;
-use Rasuvaeff\Yii3AbTesting\Assignment;
-use Rasuvaeff\Yii3AbTesting\AssignmentContext;
+use Rasuvaeff\Yii3AbTesting\AssignmentSource;
+use Rasuvaeff\Yii3AbTesting\DecisionReason;
 use Rasuvaeff\Yii3AbTesting\LoggerExposureTracker;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\BeforeTest;
@@ -26,26 +27,40 @@ final class LoggerExposureTrackerTest
         $this->logger = new SimpleLogger();
     }
 
-    public function logsExposureAtInfoLevelWithFullContext(): void
+    public function logsTheCanonicalRowUnderTheEventKey(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
-        $assignment = new Assignment(experiment: 'checkout-button', variant: 'green', subjectId: 'user-1');
 
-        $tracker->trackExposure($assignment);
+        $tracker->trackExposure(Events::exposure(
+            eventId: 'evt-1',
+            experiment: 'checkout_button',
+            variant: 'green',
+            subjectId: 'user-1',
+            reason: DecisionReason::FallbackTargetingMismatch,
+            source: AssignmentSource::Store,
+            experimentRevision: 'db:7',
+            environment: 'production',
+            dimensions: ['plan' => 'pro', 'country' => 'RU'],
+        ));
 
         Assert::same($this->logger->getMessages(), [
             [
                 'level' => LogLevel::INFO,
                 'message' => 'A/B test exposure',
                 'context' => [
-                    'experiment' => 'checkout-button',
-                    'variant' => 'green',
-                    'subjectId' => 'user-1',
-                    'isForced' => false,
-                    'isFallback' => false,
-                    'isSticky' => false,
-                    'environment' => null,
-                    'attributes' => [],
+                    'event' => [
+                        'v' => 2,
+                        'event_id' => 'evt-1',
+                        'occurred_at' => '2026-08-01 10:00:00.123',
+                        'experiment' => 'checkout_button',
+                        'variant' => 'green',
+                        'subject_id' => 'user-1',
+                        'decision_reason' => 'fallback_targeting_mismatch',
+                        'assignment_source' => 'store',
+                        'experiment_revision' => 'db:7',
+                        'environment' => 'production',
+                        'dimensions' => '{"country":"RU","plan":"pro"}',
+                    ],
                 ],
             ],
         ]);
@@ -55,56 +70,18 @@ final class LoggerExposureTrackerTest
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger, level: LogLevel::DEBUG);
 
-        $tracker->trackExposure(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'));
+        $tracker->trackExposure(Events::exposure());
 
         Assert::same($this->logger->getMessages()[0]['level'], LogLevel::DEBUG);
     }
 
-    public function carriesForcedAndFallbackFlags(): void
+    public function everyExposureProducesOneRecord(): void
     {
         $tracker = new LoggerExposureTracker(logger: $this->logger);
 
-        $tracker->trackExposure(new Assignment(
-            experiment: 'exp',
-            variant: 'a',
-            subjectId: 'u1',
-            isForced: true,
-            isFallback: true,
-        ));
+        $tracker->trackExposure(Events::exposure(eventId: 'evt-1'));
+        $tracker->trackExposure(Events::exposure(eventId: 'evt-2'));
 
-        $context = $this->logger->getMessages()[0]['context'];
-        Assert::true($context['isForced']);
-        Assert::true($context['isFallback']);
-    }
-
-    public function carriesStickyFlag(): void
-    {
-        $tracker = new LoggerExposureTracker(logger: $this->logger);
-
-        $tracker->trackExposure(new Assignment(
-            experiment: 'exp',
-            variant: 'a',
-            subjectId: 'u1',
-            isSticky: true,
-        ));
-
-        Assert::true($this->logger->getMessages()[0]['context']['isSticky']);
-    }
-
-    public function carriesEnvironmentAndAttributesFromContext(): void
-    {
-        $tracker = new LoggerExposureTracker(logger: $this->logger);
-        $context = AssignmentContext::forEnvironment('production')->withAttribute('country', 'DE');
-
-        $tracker->trackExposure(new Assignment(
-            experiment: 'exp',
-            variant: 'a',
-            subjectId: 'u1',
-            context: $context,
-        ));
-
-        $logged = $this->logger->getMessages()[0]['context'];
-        Assert::same($logged['environment'], 'production');
-        Assert::same($logged['attributes'], ['country' => 'DE']);
+        Assert::same(\count($this->logger->getMessages()), 2);
     }
 }

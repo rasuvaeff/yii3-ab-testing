@@ -26,10 +26,10 @@ final readonly class CompositeConversionTracker implements ConversionTracker, Fl
     }
 
     #[\Override]
-    public function trackConversion(Assignment $assignment, string $goal): void
+    public function trackConversion(ConversionEvent $event): void
     {
         foreach ($this->trackers as $tracker) {
-            $tracker->trackConversion($assignment, goal: $goal);
+            $tracker->trackConversion($event);
         }
     }
 

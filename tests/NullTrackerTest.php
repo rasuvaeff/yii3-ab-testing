@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\NullConversionTracker;
 use Rasuvaeff\Yii3AbTesting\NullExposureTracker;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Test;
@@ -18,20 +18,14 @@ final class NullTrackerTest
 {
     public function nullExposureTrackerDoesNotThrow(): void
     {
-        $tracker = new NullExposureTracker();
-        $assignment = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1');
-
-        $tracker->trackExposure($assignment);
+        (new NullExposureTracker())->trackExposure(Events::exposure());
 
         Assert::true(true);
     }
 
     public function nullConversionTrackerDoesNotThrow(): void
     {
-        $tracker = new NullConversionTracker();
-        $assignment = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1');
-
-        $tracker->trackConversion($assignment, goal: 'purchase');
+        (new NullConversionTracker())->trackConversion(Events::conversion());
 
         Assert::true(true);
     }

@@ -20,14 +20,14 @@ final class DeduplicatingExposureTracker implements ExposureTracker, FlushableTr
     ) {}
 
     #[\Override]
-    public function trackExposure(Assignment $assignment): void
+    public function trackExposure(ExposureEvent $event): void
     {
         $key = hash(
             algo: 'sha256',
             data: implode("\0", [
-                $assignment->experiment,
-                $assignment->subjectId,
-                $assignment->configurationId ?? '',
+                $event->experiment,
+                $event->subjectId,
+                $event->experimentRevision ?? '',
             ]),
         );
 
@@ -35,7 +35,7 @@ final class DeduplicatingExposureTracker implements ExposureTracker, FlushableTr
             return;
         }
 
-        $this->tracker->trackExposure($assignment);
+        $this->tracker->trackExposure($event);
         $this->tracked[$key] = true;
     }
 

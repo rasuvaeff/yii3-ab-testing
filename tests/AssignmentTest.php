@@ -6,8 +6,11 @@ namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
+use Rasuvaeff\Yii3AbTesting\AssignmentSource;
+use Rasuvaeff\Yii3AbTesting\DecisionReason;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
 use Testo\Test;
 
 #[Test]
@@ -28,47 +31,75 @@ final class AssignmentTest
         Assert::false($a->isVariant('control'));
     }
 
-    public function defaultFlagsAreFalse(): void
+    public function defaultsToComputedAssignment(): void
     {
         $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1');
 
-        Assert::false($a->isForced);
-        Assert::false($a->isFallback);
-        Assert::false($a->isSticky);
-        Assert::false($a->isTargetingMismatch);
+        Assert::same($a->reason, DecisionReason::Assigned);
+        Assert::same($a->source, AssignmentSource::Computed);
+        Assert::false($a->isForced());
+        Assert::false($a->isFallback());
+        Assert::false($a->isSticky());
+        Assert::false($a->isTargetingMismatch());
     }
 
-    public function targetingMismatchFlagIsSet(): void
+    /**
+     * @param list<string> $expectedTrue
+     */
+    #[DataProvider('reasonProvider')]
+    public function derivedChecksFollowTheReason(DecisionReason $reason, array $expectedTrue): void
+    {
+        $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', reason: $reason);
+
+        Assert::same(
+            [
+                'forced' => $a->isForced(),
+                'fallback' => $a->isFallback(),
+                'targetingMismatch' => $a->isTargetingMismatch(),
+            ],
+            [
+                'forced' => \in_array('forced', $expectedTrue, true),
+                'fallback' => \in_array('fallback', $expectedTrue, true),
+                'targetingMismatch' => \in_array('targetingMismatch', $expectedTrue, true),
+            ],
+        );
+    }
+
+    public static function reasonProvider(): iterable
+    {
+        yield 'assigned' => [DecisionReason::Assigned, []];
+        yield 'forced' => [DecisionReason::Forced, ['forced']];
+        yield 'disabled' => [DecisionReason::FallbackDisabled, ['fallback']];
+        yield 'targeting mismatch' => [
+            DecisionReason::FallbackTargetingMismatch,
+            ['fallback', 'targetingMismatch'],
+        ];
+    }
+
+    public function stickySourceIsReported(): void
     {
         $a = new Assignment(
             experiment: 'exp',
             variant: 'a',
             subjectId: 'u1',
-            isTargetingMismatch: true,
+            source: AssignmentSource::Store,
         );
 
-        Assert::true($a->isTargetingMismatch);
+        Assert::true($a->isSticky());
     }
 
-    public function stickyFlagIsSet(): void
+    public function stickyForcedRemainsRepresentable(): void
     {
-        $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isSticky: true);
+        $a = new Assignment(
+            experiment: 'exp',
+            variant: 'a',
+            subjectId: 'u1',
+            reason: DecisionReason::Forced,
+            source: AssignmentSource::Store,
+        );
 
-        Assert::true($a->isSticky);
-    }
-
-    public function forcedFlagIsSet(): void
-    {
-        $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isForced: true);
-
-        Assert::true($a->isForced);
-    }
-
-    public function fallbackFlagIsSet(): void
-    {
-        $a = new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isFallback: true);
-
-        Assert::true($a->isFallback);
+        Assert::true($a->isForced());
+        Assert::true($a->isSticky());
     }
 
     public function contextDefaultsToNull(): void

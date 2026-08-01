@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use Psr\Log\LogLevel;
-use Rasuvaeff\Yii3AbTesting\Assignment;
-use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Rasuvaeff\Yii3AbTesting\LoggerConversionTracker;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\BeforeTest;
@@ -26,27 +25,42 @@ final class LoggerConversionTrackerTest
         $this->logger = new SimpleLogger();
     }
 
-    public function logsConversionAtInfoLevelWithFullContext(): void
+    public function logsTheCanonicalRowUnderTheEventKey(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
-        $assignment = new Assignment(experiment: 'checkout-button', variant: 'green', subjectId: 'user-1');
 
-        $tracker->trackConversion($assignment, goal: 'purchase');
+        $tracker->trackConversion(Events::conversion(
+            eventId: 'evt-2',
+            experiment: 'checkout_button',
+            variant: 'green',
+            subjectId: 'user-1',
+            goal: 'purchase',
+            experimentRevision: 'db:7',
+            environment: 'production',
+            dimensions: ['country' => 'RU'],
+            exposureEventId: 'evt-1',
+        ));
 
         Assert::same($this->logger->getMessages(), [
             [
                 'level' => LogLevel::INFO,
                 'message' => 'A/B test conversion',
                 'context' => [
-                    'experiment' => 'checkout-button',
-                    'variant' => 'green',
-                    'subjectId' => 'user-1',
-                    'goal' => 'purchase',
-                    'isForced' => false,
-                    'isFallback' => false,
-                    'isSticky' => false,
-                    'environment' => null,
-                    'attributes' => [],
+                    'event' => [
+                        'v' => 2,
+                        'event_id' => 'evt-2',
+                        'occurred_at' => '2026-08-01 10:00:00.123',
+                        'experiment' => 'checkout_button',
+                        'variant' => 'green',
+                        'subject_id' => 'user-1',
+                        'goal' => 'purchase',
+                        'decision_reason' => 'assigned',
+                        'assignment_source' => 'computed',
+                        'experiment_revision' => 'db:7',
+                        'environment' => 'production',
+                        'dimensions' => '{"country":"RU"}',
+                        'exposure_event_id' => 'evt-1',
+                    ],
                 ],
             ],
         ]);
@@ -54,46 +68,20 @@ final class LoggerConversionTrackerTest
 
     public function logsAtConfiguredLevel(): void
     {
-        $tracker = new LoggerConversionTracker(logger: $this->logger, level: LogLevel::NOTICE);
+        $tracker = new LoggerConversionTracker(logger: $this->logger, level: LogLevel::DEBUG);
 
-        $tracker->trackConversion(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'), goal: 'signup');
+        $tracker->trackConversion(Events::conversion());
 
-        Assert::same($this->logger->getMessages()[0]['level'], LogLevel::NOTICE);
+        Assert::same($this->logger->getMessages()[0]['level'], LogLevel::DEBUG);
     }
 
-    public function recordsGoal(): void
+    public function everyConversionProducesOneRecord(): void
     {
         $tracker = new LoggerConversionTracker(logger: $this->logger);
 
-        $tracker->trackConversion(new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1'), goal: 'add-to-cart');
+        $tracker->trackConversion(Events::conversion(eventId: 'evt-1'));
+        $tracker->trackConversion(Events::conversion(eventId: 'evt-2'));
 
-        Assert::same($this->logger->getMessages()[0]['context']['goal'], 'add-to-cart');
-    }
-
-    public function carriesStickyFlag(): void
-    {
-        $tracker = new LoggerConversionTracker(logger: $this->logger);
-
-        $tracker->trackConversion(
-            new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', isSticky: true),
-            goal: 'purchase',
-        );
-
-        Assert::true($this->logger->getMessages()[0]['context']['isSticky']);
-    }
-
-    public function carriesEnvironmentAndAttributesFromContext(): void
-    {
-        $tracker = new LoggerConversionTracker(logger: $this->logger);
-        $context = AssignmentContext::forEnvironment('staging')->withAttribute('plan', 'pro');
-
-        $tracker->trackConversion(
-            new Assignment(experiment: 'exp', variant: 'a', subjectId: 'u1', context: $context),
-            goal: 'purchase',
-        );
-
-        $logged = $this->logger->getMessages()[0]['context'];
-        Assert::same($logged['environment'], 'staging');
-        Assert::same($logged['attributes'], ['plan' => 'pro']);
+        Assert::same(\count($this->logger->getMessages()), 2);
     }
 }
