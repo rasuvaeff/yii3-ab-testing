@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
-use Rasuvaeff\Yii3AbTesting\Assignment;
 use Rasuvaeff\Yii3AbTesting\DeduplicatingExposureTracker;
-use Rasuvaeff\Yii3AbTesting\ExposureTracker;
-use Rasuvaeff\Yii3AbTesting\FlushableTracker;
+use Rasuvaeff\Yii3AbTesting\NullExposureTracker;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\RecordingExposureTracker;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\BeforeTest;
@@ -17,99 +17,79 @@ use Testo\Test;
 #[Covers(DeduplicatingExposureTracker::class)]
 final class DeduplicatingExposureTrackerTest
 {
-    /** @var list<Assignment> */
-    private array $exposures = [];
+    private RecordingExposureTracker $delegate;
 
     private DeduplicatingExposureTracker $tracker;
 
     #[BeforeTest]
     public function setUp(): void
     {
-        $this->exposures = [];
-        $exposures = &$this->exposures;
-        $delegate = new class ($exposures) implements ExposureTracker {
-            /** @param list<Assignment> $exposures */
-            public function __construct(private array &$exposures) {}
-
-            #[\Override]
-            public function trackExposure(Assignment $assignment): void
-            {
-                $this->exposures[] = $assignment;
-            }
-        };
-        $this->tracker = new DeduplicatingExposureTracker(tracker: $delegate);
+        $this->delegate = new RecordingExposureTracker();
+        $this->tracker = new DeduplicatingExposureTracker(tracker: $this->delegate);
     }
 
-    public function suppressesSameExperimentSubjectAndConfiguration(): void
+    public function suppressesSameExperimentSubjectAndRevision(): void
     {
-        $first = $this->assignment(experiment: 'checkout', subject: 'u1', configuration: 'rev-1');
-        $second = new Assignment(
-            experiment: 'checkout',
-            variant: 'green',
-            subjectId: 'u1',
-            configurationId: 'rev-1',
-        );
+        $first = Events::exposure(eventId: 'evt-1', experiment: 'checkout', subjectId: 'u1', experimentRevision: 'rev-1');
+        $second = Events::exposure(eventId: 'evt-2', experiment: 'checkout', subjectId: 'u1', experimentRevision: 'rev-1');
 
         $this->tracker->trackExposure($first);
         $this->tracker->trackExposure($second);
 
-        Assert::same($this->exposures, [$first]);
+        Assert::same($this->delegate->events, [$first]);
     }
 
-    public function tracksDifferentSubjectsConfigurationsAndExperiments(): void
+    public function tracksDifferentSubjectsRevisionsAndExperiments(): void
     {
-        $assignments = [
-            $this->assignment(experiment: 'checkout', subject: 'u1', configuration: 'rev-1'),
-            $this->assignment(experiment: 'checkout', subject: 'u2', configuration: 'rev-1'),
-            $this->assignment(experiment: 'checkout', subject: 'u1', configuration: 'rev-2'),
-            $this->assignment(experiment: 'pricing', subject: 'u1', configuration: 'rev-1'),
+        $events = [
+            Events::exposure(eventId: 'evt-1', experiment: 'checkout', subjectId: 'u1', experimentRevision: 'rev-1'),
+            Events::exposure(eventId: 'evt-2', experiment: 'checkout', subjectId: 'u2', experimentRevision: 'rev-1'),
+            Events::exposure(eventId: 'evt-3', experiment: 'checkout', subjectId: 'u1', experimentRevision: 'rev-2'),
+            Events::exposure(eventId: 'evt-4', experiment: 'pricing', subjectId: 'u1', experimentRevision: 'rev-1'),
         ];
 
-        foreach ($assignments as $assignment) {
-            $this->tracker->trackExposure($assignment);
+        foreach ($events as $event) {
+            $this->tracker->trackExposure($event);
         }
 
-        Assert::same($this->exposures, $assignments);
+        Assert::same($this->delegate->events, $events);
+    }
+
+    public function deduplicatesWhenRevisionIsUnknown(): void
+    {
+        // The builder defaults experimentRevision to null, which is the case
+        // under test: a missing revision must still produce one stable key.
+        $first = Events::exposure(eventId: 'evt-1');
+        $second = Events::exposure(eventId: 'evt-2');
+
+        $this->tracker->trackExposure($first);
+        $this->tracker->trackExposure($second);
+
+        Assert::same($this->delegate->events, [$first]);
     }
 
     public function resetStartsNewRequestScope(): void
     {
-        $assignment = $this->assignment(experiment: 'checkout', subject: 'u1', configuration: 'rev-1');
-        $this->tracker->trackExposure($assignment);
-        $this->tracker->reset();
-        $this->tracker->trackExposure($assignment);
+        $event = Events::exposure();
 
-        Assert::same($this->exposures, [$assignment, $assignment]);
+        $this->tracker->trackExposure($event);
+        $this->tracker->reset();
+        $this->tracker->trackExposure($event);
+
+        Assert::same($this->delegate->events, [$event, $event]);
     }
 
     public function flushPropagatesToFlushableDelegate(): void
     {
-        $delegate = new class implements ExposureTracker, FlushableTracker {
-            public bool $flushed = false;
+        $this->tracker->flush();
 
-            #[\Override]
-            public function trackExposure(Assignment $assignment): void {}
-
-            #[\Override]
-            public function flush(): void
-            {
-                $this->flushed = true;
-            }
-        };
-        $tracker = new DeduplicatingExposureTracker(tracker: $delegate);
-
-        $tracker->flush();
-
-        Assert::true($delegate->flushed);
+        Assert::same($this->delegate->flushes, 1);
     }
 
-    private function assignment(string $experiment, string $subject, string $configuration): Assignment
+    public function flushIsSkippedForDelegateThatCannotFlush(): void
     {
-        return new Assignment(
-            experiment: $experiment,
-            variant: 'control',
-            subjectId: $subject,
-            configurationId: $configuration,
-        );
+        (new DeduplicatingExposureTracker(tracker: new NullExposureTracker()))->flush();
+
+        Assert::true(true);
     }
 }

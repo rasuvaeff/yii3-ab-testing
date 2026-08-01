@@ -1,0 +1,240 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Rasuvaeff\Yii3AbTesting\Tests;
+
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
+use Rasuvaeff\Yii3AbTesting\AssignmentSource;
+use Rasuvaeff\Yii3AbTesting\CanonicalEventSerializer;
+use Rasuvaeff\Yii3AbTesting\DecisionReason;
+use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
+
+#[Test]
+#[Covers(CanonicalEventSerializer::class)]
+final class CanonicalEventSerializerTest
+{
+    private CanonicalEventSerializer $serializer;
+
+    #[BeforeTest]
+    public function setUp(): void
+    {
+        $this->serializer = new CanonicalEventSerializer();
+    }
+
+    public function exposureRowMatchesTheSchemaExactly(): void
+    {
+        $row = $this->serializer->exposure(Events::exposure(
+            eventId: 'evt-1',
+            experiment: 'checkout_button',
+            variant: 'b',
+            subjectId: 'subject-1',
+            reason: DecisionReason::Assigned,
+            source: AssignmentSource::Computed,
+            experimentRevision: 'db:7',
+            environment: 'prod',
+            dimensions: ['country' => 'RU'],
+        ));
+
+        Assert::same($row, [
+            'v' => 2,
+            'event_id' => 'evt-1',
+            'occurred_at' => '2026-08-01 10:00:00.123',
+            'experiment' => 'checkout_button',
+            'variant' => 'b',
+            'subject_id' => 'subject-1',
+            'decision_reason' => 'assigned',
+            'assignment_source' => 'computed',
+            'experiment_revision' => 'db:7',
+            'environment' => 'prod',
+            'dimensions' => '{"country":"RU"}',
+        ]);
+    }
+
+    public function conversionRowMatchesTheSchemaExactly(): void
+    {
+        $row = $this->serializer->conversion(Events::conversion(
+            eventId: 'evt-2',
+            experiment: 'checkout_button',
+            variant: 'b',
+            subjectId: 'subject-1',
+            goal: 'purchase',
+            reason: DecisionReason::FallbackDisabled,
+            source: AssignmentSource::Store,
+            experimentRevision: 'db:7',
+            environment: 'prod',
+            dimensions: ['country' => 'RU'],
+            exposureEventId: 'evt-1',
+        ));
+
+        Assert::same($row, [
+            'v' => 2,
+            'event_id' => 'evt-2',
+            'occurred_at' => '2026-08-01 10:00:00.123',
+            'experiment' => 'checkout_button',
+            'variant' => 'b',
+            'subject_id' => 'subject-1',
+            'goal' => 'purchase',
+            'decision_reason' => 'fallback_disabled',
+            'assignment_source' => 'store',
+            'experiment_revision' => 'db:7',
+            'environment' => 'prod',
+            'dimensions' => '{"country":"RU"}',
+            'exposure_event_id' => 'evt-1',
+        ]);
+    }
+
+    public function everyValueIsScalarBecauseTheExporterRejectsNestedFields(): void
+    {
+        $rows = [
+            $this->serializer->exposure(Events::exposure(dimensions: ['country' => 'RU'])),
+            $this->serializer->conversion(Events::conversion(dimensions: ['country' => 'RU'])),
+        ];
+
+        foreach ($rows as $row) {
+            foreach ($row as $field => $value) {
+                Assert::true(is_scalar($value), sprintf('Field "%s" must be scalar', $field));
+            }
+        }
+    }
+
+    public function dimensionKeysAreSortedSoOutputIsReproducible(): void
+    {
+        $one = $this->serializer->exposure(Events::exposure(dimensions: ['plan' => 'pro', 'country' => 'RU']));
+        $other = $this->serializer->exposure(Events::exposure(dimensions: ['country' => 'RU', 'plan' => 'pro']));
+
+        Assert::same($one['dimensions'], '{"country":"RU","plan":"pro"}');
+        Assert::same($one['dimensions'], $other['dimensions']);
+    }
+
+    public function emptyDimensionsBecomeAnEmptyJsonObject(): void
+    {
+        Assert::same($this->serializer->exposure(Events::exposure())['dimensions'], '{}');
+        Assert::same($this->serializer->conversion(Events::conversion())['dimensions'], '{}');
+    }
+
+    public function absentOptionalValuesBecomeEmptyStrings(): void
+    {
+        $exposure = $this->serializer->exposure(Events::exposure());
+        $conversion = $this->serializer->conversion(Events::conversion());
+
+        Assert::same($exposure['experiment_revision'], '');
+        Assert::same($conversion['experiment_revision'], '');
+        Assert::same($conversion['exposure_event_id'], '');
+    }
+
+    public function unicodeAndSlashesStayReadableInDimensions(): void
+    {
+        $row = $this->serializer->exposure(Events::exposure(dimensions: [
+            'city' => 'Москва',
+            'path' => '/checkout',
+        ]));
+
+        Assert::same($row['dimensions'], '{"city":"Москва","path":"/checkout"}');
+    }
+
+    public function nonStringDimensionValuesArePreserved(): void
+    {
+        $row = $this->serializer->exposure(Events::exposure(dimensions: [
+            'age' => 42,
+            'beta' => true,
+            'score' => 1.5,
+        ]));
+
+        Assert::same($row['dimensions'], '{"age":42,"beta":true,"score":1.5}');
+    }
+
+    public function timestampKeepsMillisecondPrecision(): void
+    {
+        $row = $this->serializer->exposure(Events::exposure(occurredAt: '2026-08-01 10:00:00.007'));
+
+        Assert::same($row['occurred_at'], '2026-08-01 10:00:00.007');
+    }
+
+    public function schemaVersionIsTwo(): void
+    {
+        Assert::same(CanonicalEventSerializer::SCHEMA_VERSION, 2);
+    }
+
+    /**
+     * Byte-reproducibility is what makes the golden fixture meaningful and what
+     * lets a retried delivery collapse into the row it duplicates. Dimension
+     * order arrives from application code and must not leak into the output.
+     *
+     * @param array<string, scalar> $dimensions
+     */
+    #[Property(runs: 300)]
+    public function outputDoesNotDependOnDimensionOrder(array $dimensions): void
+    {
+        $reversed = array_reverse($dimensions, preserve_keys: true);
+
+        $one = $this->serializer->exposure(Events::exposure(dimensions: $dimensions));
+        $other = $this->serializer->exposure(Events::exposure(dimensions: $reversed));
+
+        Assert::same($one, $other);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function outputDoesNotDependOnDimensionOrderGenerators(): array
+    {
+        return ['dimensions' => self::dimensions()];
+    }
+
+    /**
+     * Every value must be scalar for any input: the outbox exporter rejects a
+     * nested field outright, so a non-scalar here is an undeliverable event.
+     *
+     * @param array<string, scalar> $dimensions
+     */
+    #[Property(runs: 300)]
+    public function everyRowValueStaysScalarForAnyDimensions(array $dimensions, string $environment): void
+    {
+        $row = $this->serializer->conversion(Events::conversion(
+            environment: $environment,
+            dimensions: $dimensions,
+        ));
+
+        foreach ($row as $value) {
+            Assert::true(is_scalar($value));
+        }
+
+        // Round-trip: nothing is lost or invented. Compared against a sorted
+        // copy because the serializer sorts keys for byte-reproducibility, and
+        // an empty set must still decode to an object, never to an empty string.
+        $expected = $dimensions;
+        ksort($expected);
+
+        Assert::same(json_decode($row['dimensions'], true), $expected);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function everyRowValueStaysScalarForAnyDimensionsGenerators(): array
+    {
+        return [
+            'dimensions' => self::dimensions(),
+            'environment' => Gen::stringFrom('abcdefghijklmnopqrstuvwxyz-', 0, 12),
+        ];
+    }
+
+    private static function dimensions(): ArbitraryInterface
+    {
+        return Gen::dictOf(
+            Gen::stringFrom('abcdefghijklmnopqrstuvwxyz_', 1, 12),
+            // frequency picks among generators; oneOf would pick among literal
+            // values and hand the generators themselves through as dimensions.
+            Gen::frequency([
+                [3, Gen::stringFrom('abcdefghijklmnopqrstuvwxyz0123456789 .-', 0, 20)],
+                [1, Gen::int()],
+                [1, Gen::bool()],
+            ]),
+            0,
+            6,
+        );
+    }
+}

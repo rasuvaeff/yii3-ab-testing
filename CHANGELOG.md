@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.0.0 — 2026-08-01
+
+### Added
+
+- Versioned analytics event contract: `ExposureEvent`, `ConversionEvent`,
+  `DecisionReason`, `AssignmentSource` and `AssignmentReceipt`.
+- `EventSerializer` with `CanonicalEventSerializer` — one wire format shared by
+  every delivery path, with the row shapes published as importable Psalm types.
+- `EventIdGenerator` with three implementations: `Uuid7EventIdGenerator`
+  (default, no dependencies), `SymfonyUidEventIdGenerator` and
+  `RamseyUuidEventIdGenerator`.
+- `AttributionWindow` and `RepeatedConversionPolicy` — the reporting rules that
+  decide what conversion numbers mean.
+- `SystemClock`, and `clock` / `eventIds` / `contextPolicy` arguments on
+  `AbTesting`.
+- `AbTesting::trackConversionForReceipt()` for a conversion in a later request.
+- `fixtures/golden-event-v2.json`, shipped so adapters can assert the same rows.
+- `ConfigurationAwareAssignmentStore`, moved here from `yii3-ab-testing-web` so
+  the cookie store and the database store can share it without depending on
+  each other.
+
+### Changed
+
+- **Breaking.** `ExposureTracker` and `ConversionTracker` take an event instead
+  of an `Assignment` and a goal.
+- **Breaking.** `Assignment` replaces `isForced`, `isFallback`, `isSticky` and
+  `isTargetingMismatch` properties with a `reason` / `source` pair and
+  same-named methods.
+- **Breaking.** `AnalyticsContextPolicy` (was
+  `AnalyticsContextPolicyInterface` in `yii3-ab-testing-outbox`) moved into the
+  core, so every delivery path applies one allow-list.
+- **Breaking.** Logger sinks emit the canonical row under an `event` key,
+  making them the log-shipping delivery path.
+- **Breaking.** An empty conversion goal now reports
+  `Event field "goal" must not be empty`.
+- `trackExposure()` and `trackConversion()` return the recorded event.
+
+See [UPGRADE.md](UPGRADE.md) for the migration steps.
+
 ## 1.6.0 — 2026-08-01
 
 - Decode targeting trees in `ConfigExperimentProvider` with the extensible,

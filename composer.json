@@ -23,6 +23,7 @@
     },
     "require": {
         "php": "8.3 - 8.5",
+        "psr/clock": "^1.0",
         "psr/log": "^3.0"
     },
     "require-dev": {
@@ -30,13 +31,20 @@
         "friendsofphp/php-cs-fixer": "^3.95",
         "infection/infection": "^0.33",
         "maglnet/composer-require-checker": "^4.17",
+        "ramsey/uuid": "^4.7",
         "rasuvaeff/property-testing": "^2.6",
         "rector/rector": "^2.4",
         "roave/backward-compatibility-check": "^8.0",
+        "symfony/uid": "^6.4 || ^7.0",
         "testo/bridge-infection": "^0.1.6",
         "testo/testo": "^0.10.25",
         "vimeo/psalm": "^6.16",
+        "yiisoft/di": "^1.2.1",
         "yiisoft/test-support": "^3.0"
+    },
+    "suggest": {
+        "ramsey/uuid": "Bind RamseyUuidEventIdGenerator to mint event ids with ramsey/uuid instead of the built-in generator",
+        "symfony/uid": "Bind SymfonyUidEventIdGenerator to mint event ids with symfony/uid instead of the built-in generator"
     },
     "autoload": {
         "psr-4": {

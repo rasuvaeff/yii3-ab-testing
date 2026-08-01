@@ -26,10 +26,10 @@ final readonly class CompositeExposureTracker implements ExposureTracker, Flusha
     }
 
     #[\Override]
-    public function trackExposure(Assignment $assignment): void
+    public function trackExposure(ExposureEvent $event): void
     {
         foreach ($this->trackers as $tracker) {
-            $tracker->trackExposure($assignment);
+            $tracker->trackExposure($event);
         }
     }
 

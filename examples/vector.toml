@@ -1,0 +1,75 @@
+# Vector configuration for the log-shipping delivery path.
+#
+# The application writes one JSON record per event (see log-shipping.php); this
+# picks the records up and loads them into the same ClickHouse tables the
+# durable outbox path writes. Nothing in the PHP request touches ClickHouse.
+#
+# Run with: vector --config examples/vector.toml
+#
+# Verified 2026-08-01 against vector 0.41.1: `vector validate` passes (which
+# compiles the VRL), and feeding the real output of log-shipping.php through
+# these transforms yields exactly the canonical row — the exposure is extracted
+# and the conversion is filtered out by the `abort`.
+
+[sources.app_logs]
+type = "file"
+include = ["/var/log/app/*.log"]
+# The application already emits JSON, so no parsing rules are needed here.
+
+[transforms.ab_exposures]
+type = "remap"
+inputs = ["app_logs"]
+source = '''
+  . = parse_json!(string!(.message))
+  # Keep only A/B exposure records; everything else in the log is dropped.
+  if .message != "A/B test exposure" { abort }
+  . = object!(.event)
+  # dimensions arrives as a JSON string on purpose: the outbox exporter cannot
+  # carry nested fields, and both delivery paths must produce identical rows.
+  # Parse it here only if the target column is a Map; keep the string otherwise.
+'''
+
+[transforms.ab_conversions]
+type = "remap"
+inputs = ["app_logs"]
+source = '''
+  . = parse_json!(string!(.message))
+  if .message != "A/B test conversion" { abort }
+  . = object!(.event)
+'''
+
+[sinks.clickhouse_exposures]
+type = "clickhouse"
+inputs = ["ab_exposures"]
+endpoint = "http://clickhouse:8123"
+database = "analytics"
+table = "ab_exposures_v2"
+# Batch on the collector, never in the request. These numbers are a starting
+# point: ClickHouse prefers few large inserts to many small ones.
+skip_unknown_fields = false
+
+[sinks.clickhouse_exposures.batch]
+max_events = 10000
+timeout_secs = 5
+
+[sinks.clickhouse_exposures.buffer]
+# Disk buffer keeps delivery at-least-once across a collector restart.
+# Duplicates are expected and collapse on event_id in ReplacingMergeTree.
+type = "disk"
+max_size = 268435488
+
+[sinks.clickhouse_conversions]
+type = "clickhouse"
+inputs = ["ab_conversions"]
+endpoint = "http://clickhouse:8123"
+database = "analytics"
+table = "ab_conversions_v2"
+skip_unknown_fields = false
+
+[sinks.clickhouse_conversions.batch]
+max_events = 10000
+timeout_secs = 5
+
+[sinks.clickhouse_conversions.buffer]
+type = "disk"
+max_size = 268435488
