@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\CanonicalEventSerializer;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
@@ -157,5 +160,81 @@ final class CanonicalEventSerializerTest
     public function schemaVersionIsTwo(): void
     {
         Assert::same(CanonicalEventSerializer::SCHEMA_VERSION, 2);
+    }
+
+    /**
+     * Byte-reproducibility is what makes the golden fixture meaningful and what
+     * lets a retried delivery collapse into the row it duplicates. Dimension
+     * order arrives from application code and must not leak into the output.
+     *
+     * @param array<string, scalar> $dimensions
+     */
+    #[Property(runs: 300)]
+    public function outputDoesNotDependOnDimensionOrder(array $dimensions): void
+    {
+        $reversed = array_reverse($dimensions, preserve_keys: true);
+
+        $one = $this->serializer->exposure(Events::exposure(dimensions: $dimensions));
+        $other = $this->serializer->exposure(Events::exposure(dimensions: $reversed));
+
+        Assert::same($one, $other);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function outputDoesNotDependOnDimensionOrderGenerators(): array
+    {
+        return ['dimensions' => self::dimensions()];
+    }
+
+    /**
+     * Every value must be scalar for any input: the outbox exporter rejects a
+     * nested field outright, so a non-scalar here is an undeliverable event.
+     *
+     * @param array<string, scalar> $dimensions
+     */
+    #[Property(runs: 300)]
+    public function everyRowValueStaysScalarForAnyDimensions(array $dimensions, string $environment): void
+    {
+        $row = $this->serializer->conversion(Events::conversion(
+            environment: $environment,
+            dimensions: $dimensions,
+        ));
+
+        foreach ($row as $value) {
+            Assert::true(is_scalar($value));
+        }
+
+        // Round-trip: nothing is lost or invented. Compared against a sorted
+        // copy because the serializer sorts keys for byte-reproducibility, and
+        // an empty set must still decode to an object, never to an empty string.
+        $expected = $dimensions;
+        ksort($expected);
+
+        Assert::same(json_decode($row['dimensions'], true), $expected);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function everyRowValueStaysScalarForAnyDimensionsGenerators(): array
+    {
+        return [
+            'dimensions' => self::dimensions(),
+            'environment' => Gen::stringFrom('abcdefghijklmnopqrstuvwxyz-', 0, 12),
+        ];
+    }
+
+    private static function dimensions(): ArbitraryInterface
+    {
+        return Gen::dictOf(
+            Gen::stringFrom('abcdefghijklmnopqrstuvwxyz_', 1, 12),
+            // frequency picks among generators; oneOf would pick among literal
+            // values and hand the generators themselves through as dimensions.
+            Gen::frequency([
+                [3, Gen::stringFrom('abcdefghijklmnopqrstuvwxyz0123456789 .-', 0, 20)],
+                [1, Gen::int()],
+                [1, Gen::bool()],
+            ]),
+            0,
+            6,
+        );
     }
 }

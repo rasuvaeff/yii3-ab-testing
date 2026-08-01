@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use InvalidArgumentException;
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\AllowListAnalyticsContextPolicy;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
 use Testo\Assert;
@@ -160,5 +163,55 @@ final class AllowListAnalyticsContextPolicyTest
             allowedAttributes: ['country'],
             renamedAttributes: ['country' => 'geo-code'],
         );
+    }
+
+    /**
+     * The security invariant, and the reason this class exists: whatever the
+     * context contains, nothing outside the allow-list may reach storage. A
+     * handful of examples cannot cover that — an attribute name is arbitrary
+     * application data.
+     *
+     * @param list<string> $allowed
+     * @param array<string, scalar> $attributes
+     */
+    #[Property(runs: 300)]
+    public function nothingOutsideTheAllowListEverReachesStorage(array $allowed, array $attributes): void
+    {
+        $allowed = array_values(array_unique($allowed));
+        $policy = new AllowListAnalyticsContextPolicy(allowedAttributes: $allowed);
+
+        $context = AssignmentContext::empty();
+
+        foreach ($attributes as $name => $value) {
+            $context = $context->withAttribute($name, $value);
+        }
+
+        $result = $policy->apply($context);
+
+        foreach (array_keys($result) as $name) {
+            Assert::true(\in_array($name, $allowed, true), sprintf('Leaked attribute "%s"', $name));
+            Assert::true(\array_key_exists($name, $attributes), sprintf('Invented attribute "%s"', $name));
+            Assert::same($result[$name], $attributes[$name]);
+        }
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function nothingOutsideTheAllowListEverReachesStorageGenerators(): array
+    {
+        $name = Gen::stringFrom('abcdef_', 1, 6);
+
+        return [
+            'allowed' => Gen::arrayOf($name, 0, 6),
+            'attributes' => Gen::dictOf(
+                $name,
+                Gen::frequency([
+                    [3, Gen::stringFrom('abcdefghij0123456789', 0, 12)],
+                    [1, Gen::int()],
+                    [1, Gen::bool()],
+                ]),
+                0,
+                8,
+            ),
+        ];
     }
 }

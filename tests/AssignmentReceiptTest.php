@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use InvalidArgumentException;
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\AssignmentReceipt;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
@@ -159,6 +162,62 @@ final class AssignmentReceiptTest
             reason: DecisionReason::Assigned,
             source: AssignmentSource::Computed,
         );
+    }
+
+    /**
+     * The round trip is the whole point of the receipt: it is written to a
+     * cookie in one request and read back in another. A single hand-picked
+     * example proves far less than the field space does.
+     */
+    #[Property(runs: 300)]
+    public function roundTripPreservesEveryFieldForAnyReceipt(
+        string $exposureEventId,
+        string $experiment,
+        string $variant,
+        string $subjectId,
+        DecisionReason $reason,
+        AssignmentSource $source,
+        ?string $experimentRevision,
+        int $milliseconds,
+    ): void {
+        $receipt = new AssignmentReceipt(
+            exposureEventId: $exposureEventId,
+            occurredAt: (new \DateTimeImmutable('2020-01-01 00:00:00', new \DateTimeZone('UTC')))
+                ->modify(sprintf('+%d milliseconds', $milliseconds)),
+            experiment: $experiment,
+            variant: $variant,
+            subjectId: $subjectId,
+            reason: $reason,
+            source: $source,
+            experimentRevision: $experimentRevision,
+        );
+
+        $restored = AssignmentReceipt::fromArray($receipt->toArray());
+
+        Assert::same($restored->toArray(), $receipt->toArray());
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function roundTripPreservesEveryFieldForAnyReceiptGenerators(): array
+    {
+        return [
+            'exposureEventId' => self::identifier(),
+            'experiment' => self::identifier(),
+            'variant' => self::identifier(),
+            'subjectId' => self::identifier(),
+            'reason' => Gen::elements(DecisionReason::cases()),
+            'source' => Gen::elements(AssignmentSource::cases()),
+            'experimentRevision' => Gen::nullable(self::identifier()),
+            'milliseconds' => Gen::intBetween(0, 10_000_000_000),
+        ];
+    }
+
+    /**
+     * Non-empty and free of whitespace, matching what the event fields accept.
+     */
+    private static function identifier(): ArbitraryInterface
+    {
+        return Gen::stringFrom('abcdefghijklmnopqrstuvwxyz0123456789-_:', 1, 24);
     }
 
     private function receipt(?string $revision = 'db:7'): AssignmentReceipt
