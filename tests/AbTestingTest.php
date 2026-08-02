@@ -32,6 +32,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(AbTesting::class)]
+#[Covers(InvalidVariantException::class)]
 final class AbTestingTest
 {
     private AbTesting $abTesting;

@@ -100,8 +100,9 @@ make release-check
 ## Mutation testing
 
 `minMsi` is **99, not 100, and there are no ignored mutators** — the threshold is
-honest rather than propped up by suppressions. Exactly three mutants survive, and
-all three are equivalent under PHP semantics, so no test can kill them:
+honest rather than propped up by suppressions. Exactly three mutants survive out
+of 364 generated, and all three are equivalent under PHP semantics, so no test
+can kill them:
 
 | Where | Mutation | Why it cannot be killed |
 |---|---|---|
@@ -121,6 +122,20 @@ must not be weakened: `layoutFollowsRfc9562` checks the exact bit layout, and
 `versionAndVariantBytesAreBuiltFromTheirOwnRandomByte` catches a neighbouring
 byte index, which keeps both the format and the entropy valid and shows up only
 as perfect correlation between two byte's random bits.
+
+A third assertion is load-bearing for the same reason:
+`ExposureEventTest::preservesEveryDimensionWhenMultipleAreGiven` passes three
+`dimensions` entries and asserts all three come back unchanged. `EventFields`
+is `@internal` and was previously named in no test's `#[Covers(...)]`, so
+Infection generated zero mutants for it (ER-003 in `docs/evolved-rules.md`) —
+every existing test only ever passed a single-entry `dimensions` array. Once
+`EventFields::class` was added to `#[Covers(...)]` on
+`ConversionEventTest`/`ExposureEventTest`/`AssignmentReceiptTest`, Infection's
+`ArrayOneItem` mutator on `EventFields::requireDimensions` (line 56, the
+`return $validated;`) survived: a mutant that silently truncates
+`$validated` to its first entry when there's more than one is
+indistinguishable from correct behaviour if no test ever supplies more than
+one dimension. Do not collapse that test back to a single-key array.
 
 ## Invariants & gotchas
 
