@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\ConversionEvent;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
+use Rasuvaeff\Yii3AbTesting\Internal\EventFields;
 use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -19,6 +20,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(ConversionEvent::class)]
+#[Covers(EventFields::class)]
 final class ConversionEventTest
 {
     public function keepsEveryFieldItWasGiven(): void

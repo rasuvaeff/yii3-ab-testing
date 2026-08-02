@@ -15,6 +15,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(ExperimentRegistry::class)]
+#[Covers(InvalidExperimentException::class)]
 final class ExperimentRegistryTest
 {
     /** @param list<Experiment> $experiments */

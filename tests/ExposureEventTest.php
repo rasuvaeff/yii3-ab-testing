@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
 use Rasuvaeff\Yii3AbTesting\ExposureEvent;
+use Rasuvaeff\Yii3AbTesting\Internal\EventFields;
 use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -19,6 +20,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(ExposureEvent::class)]
+#[Covers(EventFields::class)]
 final class ExposureEventTest
 {
     public function keepsEveryFieldItWasGiven(): void
@@ -90,6 +92,13 @@ final class ExposureEventTest
     public function stickySourceDoesNotAffectAnalyzability(): void
     {
         Assert::true(Events::exposure(source: AssignmentSource::Store)->isAnalyzable());
+    }
+
+    public function preservesEveryDimensionWhenMultipleAreGiven(): void
+    {
+        $event = Events::exposure(dimensions: ['country' => 'RU', 'plan' => 'pro', 'device' => 'mobile']);
+
+        Assert::same($event->dimensions, ['country' => 'RU', 'plan' => 'pro', 'device' => 'mobile']);
     }
 
     public function receiptCarriesTheDecisionForALaterRequest(): void

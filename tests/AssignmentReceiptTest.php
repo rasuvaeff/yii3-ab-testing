@@ -11,6 +11,7 @@ use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\AssignmentReceipt;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
+use Rasuvaeff\Yii3AbTesting\Internal\EventFields;
 use Rasuvaeff\Yii3AbTesting\Tests\Support\Events;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -20,6 +21,7 @@ use Testo\Test;
 
 #[Test]
 #[Covers(AssignmentReceipt::class)]
+#[Covers(EventFields::class)]
 final class AssignmentReceiptTest
 {
     public function survivesARoundTripThroughItsArrayForm(): void

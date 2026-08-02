@@ -16,6 +16,8 @@ use Testo\Test;
 
 #[Test]
 #[Covers(Experiment::class)]
+#[Covers(InvalidExperimentException::class)]
+#[Covers(InvalidVariantException::class)]
 final class ExperimentTest
 {
     public function createsValidExperiment(): void
