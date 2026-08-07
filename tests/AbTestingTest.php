@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use InvalidArgumentException;
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Classify;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\AllowListAnalyticsContextPolicy;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -526,6 +530,72 @@ final class AbTestingTest
 
         Assert::same(\strlen($event->eventId), 36);
         Assert::same($event->dimensions, []);
+    }
+
+    /**
+     * Coverage gate on the decision branches: each run drives `assign()` into
+     * the scenario that must produce the generated reason, and every
+     * `DecisionReason` is required to fire in at least 15% of the runs (uniform
+     * expectation is 25%). A branch that stops being reachable — a kill switch
+     * that no longer short-circuits, a targeting check folded into assignment —
+     * then fails with a `CoverageViolationException` instead of leaving the
+     * suite silently narrower.
+     */
+    #[Property(runs: 400)]
+    public function everyDecisionReasonIsReachable(DecisionReason $expected, string $subjectId): void
+    {
+        $abTesting = $this->abTestingForDecisions(
+            enabled: $expected !== DecisionReason::FallbackDisabled,
+        );
+        $context = AssignmentContext::forEnvironment(
+            $expected === DecisionReason::FallbackTargetingMismatch ? 'staging' : 'production',
+        );
+
+        $assignment = $abTesting->assign(
+            experiment: 'decisions',
+            subjectId: $subjectId,
+            forcedVariant: $expected === DecisionReason::Forced ? 'green' : null,
+            context: $context,
+        );
+
+        foreach (DecisionReason::cases() as $reason) {
+            Classify::cover($assignment->reason === $reason, $reason->value, 15.0);
+        }
+
+        Assert::same($assignment->reason, $expected);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function everyDecisionReasonIsReachableGenerators(): array
+    {
+        return [
+            'expected' => Gen::enum(DecisionReason::class),
+            'subjectId' => Gen::uuid(),
+        ];
+    }
+
+    private function abTestingForDecisions(bool $enabled): AbTesting
+    {
+        $provider = new readonly class ($enabled) implements ExperimentProvider {
+            public function __construct(private bool $enabled) {}
+
+            #[\Override]
+            public function getExperiments(): array
+            {
+                return [
+                    'decisions' => new Experiment(
+                        name: 'decisions',
+                        enabled: $this->enabled,
+                        salt: 'decisions-v1',
+                        fallbackVariant: 'control',
+                        variants: ['control' => 50, 'green' => 50],
+                        targeting: new EnvironmentTargetingRule(environments: ['production']),
+                    ),
+                ];
+            }
+        };
+
+        return new AbTesting(provider: $provider, strategy: new WeightedHashAssignmentStrategy());
     }
 
     private function abTestingForDisabledExperiment(): AbTesting

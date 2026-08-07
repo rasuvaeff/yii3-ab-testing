@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
@@ -237,6 +238,36 @@ final class WeightedHashAssignmentStrategyTest
             'w1' => Gen::intBetween(1, 100),
             'w2' => Gen::intBetween(0, 100),
         ];
+    }
+
+    /**
+     * Coverage gate on the weights themselves: with 50/30/20 every variant must
+     * take at least (weight − 10) percent of the generated subjects. A strategy
+     * that stops honouring weights — a flat pick, a collapsed bucket — then
+     * fails with a `CoverageViolationException` even though every individual
+     * assignment is still one of the declared variant names.
+     *
+     * Subjects come from `Gen::uuid()`: 122 random bits with no boundary bias,
+     * so repeated subjects (which would skew the shares) are effectively absent.
+     */
+    #[Property(runs: 600)]
+    public function weightsDriveTheShareOfAssignments(string $subjectId): void
+    {
+        $variants = ['blue' => 20, 'control' => 50, 'green' => 30];
+
+        $variant = $this->strategy->assign(salt: 'weights-v1', subjectId: $subjectId, variants: $variants);
+
+        Classify::cover($variant === 'control', 'control', 40.0);
+        Classify::cover($variant === 'green', 'green', 20.0);
+        Classify::cover($variant === 'blue', 'blue', 10.0);
+
+        Assert::true(\array_key_exists($variant, $variants));
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function weightsDriveTheShareOfAssignmentsGenerators(): array
+    {
+        return ['subjectId' => Gen::uuid()];
     }
 
     #[Property(runs: 300)]
