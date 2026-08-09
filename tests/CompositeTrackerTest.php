@@ -71,7 +71,7 @@ final class CompositeTrackerTest
         $composite->trackExposure(Events::exposure());
         $composite->flush();
 
-        Assert::true(true);
+        Assert::true(actual: true);
     }
 
     public function emptyConversionCompositeDoesNothing(): void
@@ -81,7 +81,7 @@ final class CompositeTrackerTest
         $composite->trackConversion(Events::conversion());
         $composite->flush();
 
-        Assert::true(true);
+        Assert::true(actual: true);
     }
 
     public function exposureFlushReachesEveryFlushableTracker(): void

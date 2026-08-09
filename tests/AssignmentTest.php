@@ -58,9 +58,9 @@ final class AssignmentTest
                 'targetingMismatch' => $a->isTargetingMismatch(),
             ],
             [
-                'forced' => \in_array('forced', $expectedTrue, true),
-                'fallback' => \in_array('fallback', $expectedTrue, true),
-                'targetingMismatch' => \in_array('targetingMismatch', $expectedTrue, true),
+                'forced' => \in_array('forced', $expectedTrue, strict: true),
+                'fallback' => \in_array('fallback', $expectedTrue, strict: true),
+                'targetingMismatch' => \in_array('targetingMismatch', $expectedTrue, strict: true),
             ],
         );
     }

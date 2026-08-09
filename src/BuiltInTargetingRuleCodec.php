@@ -16,7 +16,7 @@ final readonly class BuiltInTargetingRuleCodec implements TargetingRuleCodec
     #[\Override]
     public function supports(string $type): bool
     {
-        return in_array($type, self::TYPES, true);
+        return in_array($type, self::TYPES, strict: true);
     }
 
     #[\Override]

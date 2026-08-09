@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Migrate the property-based test suite from the frozen `rasuvaeff/property-testing` 2.x to the new `rasuvaeff/property-testing-testo` adapter (drop-in, no PHP code changes; same `#[Property]` attribute and `Gen` API).
+- Adopt `rasuvaeff/rector-named-literals` and apply the named-argument rule to literal calls.
+
 ## 2.0.0 — 2026-08-01
 
 ### Added

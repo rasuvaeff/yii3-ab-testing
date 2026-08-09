@@ -20,13 +20,13 @@ final class NullTrackerTest
     {
         (new NullExposureTracker())->trackExposure(Events::exposure());
 
-        Assert::true(true);
+        Assert::true(actual: true);
     }
 
     public function nullConversionTrackerDoesNotThrow(): void
     {
         (new NullConversionTracker())->trackConversion(Events::conversion());
 
-        Assert::true(true);
+        Assert::true(actual: true);
     }
 }
