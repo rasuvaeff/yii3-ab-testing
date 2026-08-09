@@ -88,7 +88,7 @@ final class AllowListAnalyticsContextPolicyTest
         $policy = new AllowListAnalyticsContextPolicy(allowedAttributes: ['age', 'beta']);
         $context = AssignmentContext::empty()
             ->withAttribute('age', 42)
-            ->withAttribute('beta', true);
+            ->withAttribute('beta', value: true);
 
         Assert::same($policy->apply($context), ['age' => 42, 'beta' => true]);
     }
@@ -189,7 +189,7 @@ final class AllowListAnalyticsContextPolicyTest
         $result = $policy->apply($context);
 
         foreach (array_keys($result) as $name) {
-            Assert::true(\in_array($name, $allowed, true), sprintf('Leaked attribute "%s"', $name));
+            Assert::true(\in_array($name, $allowed, strict: true), sprintf('Leaked attribute "%s"', $name));
             Assert::true(\array_key_exists($name, $attributes), sprintf('Invented attribute "%s"', $name));
             Assert::same($result[$name], $attributes[$name]);
         }

@@ -443,7 +443,7 @@ final class AbTestingTest
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1', context: $context);
 
         Assert::same($assignment->reason, DecisionReason::Assigned);
-        Assert::true(in_array($assignment->variant, ['control', 'green'], true));
+        Assert::true(in_array($assignment->variant, ['control', 'green'], strict: true));
     }
 
     public function noTargetingAssignsAllSubjects(): void

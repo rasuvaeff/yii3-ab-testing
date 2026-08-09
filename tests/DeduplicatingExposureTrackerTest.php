@@ -90,6 +90,6 @@ final class DeduplicatingExposureTrackerTest
     {
         (new DeduplicatingExposureTracker(tracker: new NullExposureTracker()))->flush();
 
-        Assert::true(true);
+        Assert::true(actual: true);
     }
 }

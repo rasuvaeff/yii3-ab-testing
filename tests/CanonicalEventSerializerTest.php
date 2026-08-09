@@ -210,7 +210,7 @@ final class CanonicalEventSerializerTest
         $expected = $dimensions;
         ksort($expected);
 
-        Assert::same(json_decode($row['dimensions'], true), $expected);
+        Assert::same(json_decode($row['dimensions'], associative: true), $expected);
     }
 
     /** @return array<string, ArbitraryInterface> */

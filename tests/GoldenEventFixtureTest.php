@@ -41,7 +41,7 @@ final class GoldenEventFixtureTest
         Assert::true($contents !== false, 'Golden fixture must ship with the package');
 
         /** @var array{exposure: array{input: array<string, mixed>, row: array<string, mixed>}, conversion: array{input: array<string, mixed>, row: array<string, mixed>}} $decoded */
-        $decoded = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        $decoded = json_decode($contents, associative: true, flags: JSON_THROW_ON_ERROR);
         $this->fixture = $decoded;
     }
 
@@ -81,7 +81,7 @@ final class GoldenEventFixtureTest
 
         foreach ($carried as $value) {
             Assert::true(
-                \in_array($value, array_map(strval(...), $row), true),
+                \in_array($value, array_map(strval(...), $row), strict: true),
                 sprintf('Value "%s" must survive serialization', (string) $value),
             );
         }

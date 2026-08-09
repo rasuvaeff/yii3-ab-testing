@@ -44,13 +44,13 @@ final readonly class AllowListAnalyticsContextPolicy implements AnalyticsContext
         }
 
         foreach (array_keys($renamedAttributes) as $attribute) {
-            if (!\in_array($attribute, $allowedAttributes, true)) {
+            if (!\in_array($attribute, $allowedAttributes, strict: true)) {
                 throw new InvalidArgumentException(sprintf('Renamed attribute "%s" must be allow-listed', $attribute));
             }
         }
 
         foreach ($redactedAttributes as $attribute) {
-            if (!\in_array($attribute, $allowedAttributes, true)) {
+            if (!\in_array($attribute, $allowedAttributes, strict: true)) {
                 throw new InvalidArgumentException(sprintf('Redacted attribute "%s" must be allow-listed', $attribute));
             }
         }
@@ -72,7 +72,7 @@ final readonly class AllowListAnalyticsContextPolicy implements AnalyticsContext
             }
 
             $name = $this->renamedAttributes[$attribute] ?? $attribute;
-            $result[$name] = \in_array($attribute, $this->redactedAttributes, true)
+            $result[$name] = \in_array($attribute, $this->redactedAttributes, strict: true)
                 ? self::REDACTED
                 : $attributes[$attribute];
         }
