@@ -547,6 +547,14 @@ bucket = hash % totalWeight
 
 Variants sorted by key. Cumulative weight boundaries determine assignment.
 
+Every weight must be a non-negative integer, and `Experiment` enforces it in the
+constructor — a fractional, numeric-string or negative weight throws
+`InvalidExperimentException`. A negative one is the reason the check exists: the
+total can still clear `> 0`, but the cumulative boundary goes backwards and the
+preceding variant becomes unreachable, so the experiment quietly runs a
+distribution nobody configured. Zero stays valid: it keeps a variant defined
+while routing no traffic to it.
+
 ### Guarantees
 
 - Same `salt` + `subjectId` → same variant, forever.

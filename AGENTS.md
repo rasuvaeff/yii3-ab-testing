@@ -143,6 +143,14 @@ one dimension. Do not collapse that test back to a single-key array.
 - `fallbackVariant` must exist in `variants`. Total weight > 0 — `Experiment`
   validates it, and `WeightedHashAssignmentStrategy` independently throws
   `InvalidArgumentException` when called directly with total weight <= 0.
+- **Each individual weight is validated too, and must stay that way.** The
+  constructor `@param` is deliberately `array<string, mixed>`, not
+  `array<string, int<0, max>>`: `ConfigExperimentProvider` hands application
+  `params` through unchecked, so the narrow type was only ever a Psalm claim.
+  Non-int and negative weights throw `InvalidExperimentException`; zero is
+  valid. Do not "tighten" the docblock back — a negative weight passes the
+  `totalWeight > 0` gate, drives the cumulative boundary backwards, and makes
+  the preceding variant silently unreachable.
 - `ExperimentRegistry` is lazy: the provider is queried on first access and
   memoized; `reset()` drops the memo. Core `config/di.php` registers a `reset`
   hook (yiisoft/di `StateResetter`) so worker runtimes (RoadRunner, Swoole)

@@ -15,6 +15,7 @@ composer require rasuvaeff/yii3-ab-testing
 - AssignmentResolver::resolve() is the shared deterministic/sticky resolver contract; AbTesting implements it
 - isWithContext() is the context-aware boolean check; existing is() remains context-free
 - Conversion goal must contain a non-whitespace character; AbTesting rejects invalid goals before calling a tracker
+- Variant weights must be non-negative integers; Experiment's constructor rejects non-int and negative weights with InvalidExperimentException. Zero is valid (variant defined, no traffic). A negative weight would still clear `totalWeight > 0` while making the preceding variant unreachable
 - Disabled experiment → fallbackVariant
 - Forced variant must be in experiment's variant list
 - AbTesting requires an ExperimentProvider (ConfigExperimentProvider or a `-db` backend); core di does NOT bind it

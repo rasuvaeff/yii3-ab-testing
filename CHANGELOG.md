@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-- Migrate the property-based test suite from the frozen `rasuvaeff/property-testing` 2.x to the new `rasuvaeff/property-testing-testo` adapter (drop-in, no PHP code changes; same `#[Property]` attribute and `Gen` API).
+### Fixed
+
+- `Experiment` now validates each variant weight in the constructor: a weight that is not an integer, or is negative, throws `InvalidExperimentException`. Previously `int<0, max>` was a Psalm annotation only, and `ConfigExperimentProvider` passed application `params` straight through — so a config typo such as `['control' => -10, 'test' => 30]` was accepted (`array_sum()` is 20, which clears the `> 0` gate), the cumulative bucket boundary in `WeightedHashAssignmentStrategy` went backwards, `control` became unreachable, and the experiment silently ran a distribution nobody had configured. Zero remains valid — it keeps a variant defined while routing no traffic to it. The constructor `@param` widens to `array<string, mixed>` and narrows internally, the monorepo convention for untrusted input; no signature changes.
+
+### Changed
+
+- Migrate the property-based test suite from the frozen `rasuvaeff/property-testing` 2.x to the new `rasuvaeff/property-testing-testo` adapter (drop-in, no PHP code changes; same `#[Property]` attribute and `Gen` API), and raise it to `^0.6`.
 - Adopt `rasuvaeff/rector-named-literals` and apply the named-argument rule to literal calls.
 
 ## 2.0.0 — 2026-08-01
