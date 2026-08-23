@@ -264,6 +264,35 @@ final class ExperimentTest
         Assert::same($exp->variants, ['a' => 100, 'b' => 0]);
     }
 
+    /**
+     * Every individual weight is a valid non-negative int, but `array_sum()`
+     * overflows to float once the total exceeds `PHP_INT_MAX` — and the
+     * bucketing modulo in `WeightedHashAssignmentStrategy` breaks on it.
+     *
+     * @return iterable<string, array{0: array<string, int>}>
+     */
+    public static function overflowingTotalWeightProvider(): iterable
+    {
+        yield 'max plus small' => [['a' => 30, 'b' => PHP_INT_MAX]];
+        yield 'max plus max' => [['a' => PHP_INT_MAX, 'b' => PHP_INT_MAX]];
+        yield 'zero plus overflow' => [['a' => 0, 'b' => PHP_INT_MAX, 'c' => 1]];
+    }
+
+    #[DataProvider('overflowingTotalWeightProvider')]
+    public function rejectsTotalWeightOverflow(array $variants): void
+    {
+        Expect::exception(InvalidExperimentException::class)
+            ->withMessageContaining('exceeds PHP_INT_MAX');
+
+        new Experiment(
+            name: 'test',
+            enabled: true,
+            salt: 'salt',
+            fallbackVariant: 'a',
+            variants: $variants,
+        );
+    }
+
     public function invalidWeightMessageNamesTheVariantAndExperiment(): void
     {
         Expect::exception(InvalidExperimentException::class)
@@ -280,8 +309,10 @@ final class ExperimentTest
 
     /**
      * Known edge cases, pinned deterministically ahead of the random phase:
-     * the two ways a weight can be invalid, the boundary that must stay valid,
-     * and the negative-plus-positive pair whose sum still clears `> 0`.
+     * the ways a weight can make construction fail, the boundary that must
+     * stay valid, and the negative-plus-positive pair whose sum still clears
+     * `> 0`. `PHP_INT_MAX` pins the total-overflow boundary: valid per-weight,
+     * rejected because `30 + PHP_INT_MAX` overflows.
      *
      * @return iterable<string, array{0: mixed}>
      */
@@ -303,12 +334,14 @@ final class ExperimentTest
     #[Property(runs: 300)]
     public function weightIsAcceptedOnlyWhenNonNegativeInt(mixed $weight): void
     {
-        $accepted = \is_int($weight) && $weight >= 0;
+        $overflowsTotal = \is_int($weight) && \is_float(30 + $weight);
+        $accepted = \is_int($weight) && $weight >= 0 && !$overflowsTotal;
 
         Classify::cover($accepted, 'accepted', 20.0);
         Classify::cover(!$accepted, 'rejected', 20.0);
         Classify::when(\is_int($weight) && $weight < 0, 'negative int');
         Classify::when(\is_float($weight), 'float');
+        Classify::when($overflowsTotal, 'total overflow');
 
         try {
             $exp = new Experiment(

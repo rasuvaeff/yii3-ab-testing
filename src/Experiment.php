@@ -38,6 +38,11 @@ final readonly class Experiment
      * valid: it is the documented way to keep a variant defined while routing
      * no traffic to it, and the total-weight check already rejects all-zero.
      *
+     * The total is re-checked after summing: every individual weight may be a
+     * valid non-negative int, yet their sum can still exceed `PHP_INT_MAX`, in
+     * which case `array_sum()` silently returns a float and the bucketing
+     * modulo in `WeightedHashAssignmentStrategy` breaks down.
+     *
      * @param array<string, mixed> $variants
      */
     public function __construct(
@@ -103,7 +108,17 @@ final readonly class Experiment
             );
         }
 
+        /** @var int|float $totalWeight integer weights overflow to float past PHP_INT_MAX */
         $totalWeight = array_sum($validated);
+
+        if (!\is_int($totalWeight)) {
+            throw new Exception\InvalidExperimentException(
+                message: sprintf(
+                    'Total weight of experiment "%s" exceeds PHP_INT_MAX and cannot be used for bucketing',
+                    $name,
+                ),
+            );
+        }
 
         if ($totalWeight <= 0) {
             throw new Exception\InvalidExperimentException(

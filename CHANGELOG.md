@@ -5,6 +5,7 @@
 ### Fixed
 
 - `Experiment` now validates each variant weight in the constructor: a weight that is not an integer, or is negative, throws `InvalidExperimentException`. Previously `int<0, max>` was a Psalm annotation only, and `ConfigExperimentProvider` passed application `params` straight through — so a config typo such as `['control' => -10, 'test' => 30]` was accepted (`array_sum()` is 20, which clears the `> 0` gate), the cumulative bucket boundary in `WeightedHashAssignmentStrategy` went backwards, `control` became unreachable, and the experiment silently ran a distribution nobody had configured. Zero remains valid — it keeps a variant defined while routing no traffic to it. The constructor `@param` widens to `array<string, mixed>` and narrows internally, the monorepo convention for untrusted input; no signature changes.
+- The **total** weight is re-checked after summing in both `Experiment` and `WeightedHashAssignmentStrategy`: individually valid weights whose sum exceeds `PHP_INT_MAX` make `array_sum()` return a float, on which the bucketing modulo fails (`DivisionByZeroError` or a garbage bucket). Such a map is now rejected with an explicit error instead of failing at assignment time.
 
 ### Changed
 

@@ -555,6 +555,11 @@ preceding variant becomes unreachable, so the experiment quietly runs a
 distribution nobody configured. Zero stays valid: it keeps a variant defined
 while routing no traffic to it.
 
+The **total** is re-checked after summing: individually valid weights whose sum
+exceeds `PHP_INT_MAX` make `array_sum()` return a float, which breaks the
+bucketing modulo. Both `Experiment` and a direct `WeightedHashAssignmentStrategy`
+call reject such a map instead of failing at assignment time.
+
 ### Guarantees
 
 - Same `salt` + `subjectId` → same variant, forever.

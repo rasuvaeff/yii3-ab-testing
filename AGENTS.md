@@ -142,7 +142,9 @@ one dimension. Do not collapse that test back to a single-key array.
 - Experiment/variant name regex: `/^[a-z][a-z0-9_-]*\z/`.
 - `fallbackVariant` must exist in `variants`. Total weight > 0 — `Experiment`
   validates it, and `WeightedHashAssignmentStrategy` independently throws
-  `InvalidArgumentException` when called directly with total weight <= 0.
+  `InvalidArgumentException` when called directly with total weight <= 0. Both
+  also reject a **float** total: individually valid weights can overflow
+  `array_sum()` past `PHP_INT_MAX`, and the bucketing modulo breaks on it.
 - **Each individual weight is validated too, and must stay that way.** The
   constructor `@param` is deliberately `array<string, mixed>`, not
   `array<string, int<0, max>>`: `ConfigExperimentProvider` hands application

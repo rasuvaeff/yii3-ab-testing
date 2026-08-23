@@ -19,7 +19,14 @@ final readonly class WeightedHashAssignmentStrategy implements AssignmentStrateg
         $sorted = $variants;
         ksort($sorted);
 
+        /** @var int|float $totalWeight integer weights overflow to float past PHP_INT_MAX */
         $totalWeight = array_sum($sorted);
+
+        if (!\is_int($totalWeight)) {
+            throw new \InvalidArgumentException(
+                'Total variant weight exceeds PHP_INT_MAX and cannot be used for bucketing',
+            );
+        }
 
         if ($totalWeight <= 0) {
             throw new \InvalidArgumentException('Total variant weight must be greater than 0');
