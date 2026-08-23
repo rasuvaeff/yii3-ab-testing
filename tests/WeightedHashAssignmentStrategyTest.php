@@ -162,6 +162,24 @@ final class WeightedHashAssignmentStrategyTest
         }
     }
 
+    /**
+     * Each weight is a valid positive int, but `array_sum()` overflows to
+     * float past `PHP_INT_MAX` — and `% $totalWeight` on it is fatal.
+     */
+    public function throwsOnTotalWeightOverflow(): void
+    {
+        try {
+            $this->strategy->assign(
+                salt: 'test',
+                subjectId: 'u1',
+                variants: ['a' => PHP_INT_MAX, 'b' => PHP_INT_MAX],
+            );
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (\InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('exceeds PHP_INT_MAX');
+        }
+    }
+
     public function weightedDistributionWithUnequalWeights(): void
     {
         $variants = ['control' => 90, 'experiment' => 10];
