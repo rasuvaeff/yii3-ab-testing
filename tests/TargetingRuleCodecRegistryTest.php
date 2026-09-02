@@ -46,6 +46,23 @@ final class TargetingRuleCodecRegistryTest
         Assert::false($rule->matches(AssignmentContext::forEnvironment('staging')));
     }
 
+    public function decodesRulesAtTheMaximumNestingDepth(): void
+    {
+        $registry = new TargetingRuleCodecRegistry();
+
+        $rule = $registry->decode($this->nestedAndRule(depth: 64));
+
+        Assert::instanceOf($rule, AndTargetingRule::class);
+    }
+
+    public function rejectsRulesBeyondTheMaximumNestingDepth(): void
+    {
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage('Invalid targeting rule: maximum nesting depth of 64 exceeded');
+
+        (new TargetingRuleCodecRegistry())->decode($this->nestedAndRule(depth: 65));
+    }
+
     public function builtInRuleClassesAreSelected(): void
     {
         $registry = new TargetingRuleCodecRegistry();
@@ -194,5 +211,17 @@ final class TargetingRuleCodecRegistryTest
             ->withMessage('Invalid targeting rule: "type" must be a non-empty string');
 
         (new TargetingRuleCodecRegistry())->decode(['type' => '']);
+    }
+
+    /** @return array<string, mixed> */
+    private function nestedAndRule(int $depth): array
+    {
+        $rule = ['type' => 'environment', 'values' => ['production']];
+
+        for ($index = 0; $index < $depth; ++$index) {
+            $rule = ['type' => 'and', 'rules' => [$rule]];
+        }
+
+        return $rule;
     }
 }

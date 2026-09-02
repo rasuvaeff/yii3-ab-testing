@@ -469,7 +469,8 @@ representation (`environment`, `attribute`, `and`, `or`).
 `TargetingRuleCodecRegistry::decode()` and `encode()` provide the shared
 config/DB representation. Register a custom `TargetingRuleCodec` in its
 constructor to add another tagged rule type; custom codecs are checked before
-the built-in codec.
+the built-in codec. Decoding rejects targeting trees nested deeper than 64
+levels with `InvalidArgumentException`.
 
 ### Sticky variants (optional)
 

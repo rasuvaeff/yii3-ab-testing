@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1 — 2026-09-02
+
+### Fixed
+
+- Limit targeting-rule decoding to 64 nested levels. Deeper config trees now
+  fail with `InvalidArgumentException` instead of exhausting the call stack.
+
 ## 2.1.0 — 2026-08-23
 
 ### Fixed

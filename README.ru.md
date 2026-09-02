@@ -478,6 +478,8 @@ JSON-представлении БД (`environment`, `attribute`, `and`, `or`).
 `TargetingRuleCodecRegistry::decode()` и `encode()` задают общее представление
 для config/DB. Передайте собственный `TargetingRuleCodec` в конструктор registry,
 чтобы добавить новый tagged-тип; custom codecs проверяются до встроенного.
+Декодирование отклоняет деревья targeting глубже 64 уровней с
+`InvalidArgumentException`.
 
 ### Sticky-варианты (необязательно)
 

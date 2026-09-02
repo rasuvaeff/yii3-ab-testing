@@ -327,6 +327,8 @@ $data = $registry->encode($rule); // array<string, mixed>
 `TargetingRuleCodec` extension methods: `supports(string $type): bool`,
 `supportsRule(TargetingRule $rule): bool`, `decode(array $data, Closure $decode):
 TargetingRule`, and `encode(TargetingRule $rule, Closure $encode): array`.
+Targeting decoding accepts at most 64 nested levels and throws
+`InvalidArgumentException` for deeper trees.
 
 ### Yii3 DI config
 

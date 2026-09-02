@@ -11,6 +11,8 @@ use InvalidArgumentException;
  */
 final readonly class TargetingRuleCodecRegistry
 {
+    private const int MAX_DECODE_DEPTH = 64;
+
     /** @var non-empty-list<TargetingRuleCodec> */
     private array $codecs;
 
@@ -24,6 +26,20 @@ final readonly class TargetingRuleCodecRegistry
 
     public function decode(mixed $data): TargetingRule
     {
+        return $this->decodeAtDepth($data, depth: 0);
+    }
+
+    private function decodeAtDepth(mixed $data, int $depth): TargetingRule
+    {
+        if ($depth > self::MAX_DECODE_DEPTH) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Invalid targeting rule: maximum nesting depth of %d exceeded',
+                    self::MAX_DECODE_DEPTH,
+                ),
+            );
+        }
+
         if (!is_array($data) || array_is_list($data)) {
             throw new InvalidArgumentException(
                 sprintf('Invalid targeting rule: expected object, got %s', get_debug_type($data)),
@@ -40,7 +56,10 @@ final readonly class TargetingRuleCodecRegistry
 
         foreach ($this->codecs as $codec) {
             if ($codec->supports($type)) {
-                return $codec->decode($data, $this->decode(...));
+                return $codec->decode(
+                    $data,
+                    fn(mixed $nested): TargetingRule => $this->decodeAtDepth($nested, depth: $depth + 1),
+                );
             }
         }
 
