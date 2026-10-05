@@ -9,6 +9,7 @@ use Rasuvaeff\PropertyTesting\ArbitraryInterface;
 use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\AllowListAnalyticsContextPolicy;
 use Rasuvaeff\Yii3AbTesting\AssignmentContext;
@@ -16,16 +17,16 @@ use Rasuvaeff\Yii3AbTesting\AssignmentReceipt;
 use Rasuvaeff\Yii3AbTesting\AssignmentSource;
 use Rasuvaeff\Yii3AbTesting\AttributeTargetingRule;
 use Rasuvaeff\Yii3AbTesting\ConfigExperimentProvider;
+use Rasuvaeff\Yii3AbTesting\ConversionTracker;
 use Rasuvaeff\Yii3AbTesting\DecisionReason;
 use Rasuvaeff\Yii3AbTesting\EnvironmentTargetingRule;
+use Rasuvaeff\Yii3AbTesting\EventIdGenerator;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidVariantException;
 use Rasuvaeff\Yii3AbTesting\Experiment;
 use Rasuvaeff\Yii3AbTesting\ExperimentProvider;
+use Rasuvaeff\Yii3AbTesting\ExposureTracker;
 use Rasuvaeff\Yii3AbTesting\TargetingRule;
 use Rasuvaeff\Yii3AbTesting\Tests\Support\FixedClock;
-use Rasuvaeff\Yii3AbTesting\Tests\Support\RecordingConversionTracker;
-use Rasuvaeff\Yii3AbTesting\Tests\Support\RecordingExposureTracker;
-use Rasuvaeff\Yii3AbTesting\Tests\Support\SequentialEventIdGenerator;
 use Rasuvaeff\Yii3AbTesting\WeightedHashAssignmentStrategy;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -34,6 +35,9 @@ use Testo\Expect;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
 
+use function Rasuvaeff\Understudy\verify;
+use function Rasuvaeff\Understudy\when;
+
 #[Test]
 #[Covers(AbTesting::class)]
 #[Covers(InvalidVariantException::class)]
@@ -41,15 +45,15 @@ final class AbTestingTest
 {
     private AbTesting $abTesting;
 
-    private RecordingExposureTracker $exposures;
+    private ExposureTracker $exposures;
 
-    private RecordingConversionTracker $conversions;
+    private ConversionTracker $conversions;
 
     #[BeforeTest]
     public function setUp(): void
     {
-        $this->exposures = new RecordingExposureTracker();
-        $this->conversions = new RecordingConversionTracker();
+        $this->exposures = Understudy::for(ExposureTracker::class);
+        $this->conversions = Understudy::for(ConversionTracker::class);
 
         $this->abTesting = new AbTesting(
             provider: new ConfigExperimentProvider([
@@ -64,7 +68,7 @@ final class AbTestingTest
             exposureTracker: $this->exposures,
             conversionTracker: $this->conversions,
             clock: new FixedClock(),
-            eventIds: new SequentialEventIdGenerator(),
+            eventIds: $this->sequentialEventIds('evt-1', 'evt-2'),
             contextPolicy: new AllowListAnalyticsContextPolicy(allowedAttributes: ['country']),
         );
     }
@@ -185,7 +189,7 @@ final class AbTestingTest
     {
         $this->abTesting->assign(experiment: 'checkout-button', subjectId: 'user-1');
 
-        Assert::same($this->exposures->events, []);
+        Understudy::unused($this->exposures);
     }
 
     public function trackExposureMintsIdentityAndTimestamp(): void
@@ -194,8 +198,7 @@ final class AbTestingTest
 
         $event = $this->abTesting->trackExposure($assignment);
 
-        Assert::count($this->exposures->events, 1);
-        Assert::same($this->exposures->events[0], $event);
+        verify(fn() => $this->exposures->trackExposure($event), times: 1);
         Assert::same($event->eventId, 'evt-1');
         Assert::same($event->occurredAt->format('Y-m-d H:i:s.v'), '2026-08-01 10:00:00.123');
         Assert::same($event->experiment, 'checkout-button');
@@ -265,8 +268,7 @@ final class AbTestingTest
 
         $event = $this->abTesting->trackConversion($assignment, goal: 'purchase');
 
-        Assert::count($this->conversions->events, 1);
-        Assert::same($this->conversions->events[0], $event);
+        verify(fn() => $this->conversions->trackConversion($event), times: 1);
         Assert::same($event->goal, 'purchase');
         Assert::same($event->reason, $assignment->reason);
         Assert::null($event->exposureEventId);
@@ -323,7 +325,7 @@ final class AbTestingTest
         Assert::same($conversion->experimentRevision, $receipt->experimentRevision);
         Assert::same($conversion->exposureEventId, 'evt-1');
         Assert::same($conversion->eventId, 'evt-2');
-        Assert::same($this->conversions->events, [$conversion]);
+        verify(fn() => $this->conversions->trackConversion($conversion), times: 1);
     }
 
     public function conversionForReceiptUsesTheConversionRequestContext(): void
@@ -474,24 +476,16 @@ final class AbTestingTest
     public function disabledExperimentBypassesTargetingCheck(): void
     {
         $rule = new AttributeTargetingRule(attribute: 'plan', value: 'pro');
-        $provider = new readonly class ($rule) implements ExperimentProvider {
-            public function __construct(private AttributeTargetingRule $rule) {}
-
-            #[\Override]
-            public function getExperiments(): array
-            {
-                return [
-                    'targeted' => new Experiment(
-                        name: 'targeted',
-                        enabled: false,
-                        salt: 'salt',
-                        fallbackVariant: 'control',
-                        variants: ['control' => 50, 'green' => 50],
-                        targeting: $this->rule,
-                    ),
-                ];
-            }
-        };
+        $provider = $this->providerOf([
+            'targeted' => new Experiment(
+                name: 'targeted',
+                enabled: false,
+                salt: 'salt',
+                fallbackVariant: 'control',
+                variants: ['control' => 50, 'green' => 50],
+                targeting: $rule,
+            ),
+        ]);
         $ab = new AbTesting(provider: $provider, strategy: new WeightedHashAssignmentStrategy());
 
         $assignment = $ab->assign(experiment: 'targeted', subjectId: 'user-1');
@@ -576,26 +570,19 @@ final class AbTestingTest
 
     private function abTestingForDecisions(bool $enabled): AbTesting
     {
-        $provider = new readonly class ($enabled) implements ExperimentProvider {
-            public function __construct(private bool $enabled) {}
-
-            #[\Override]
-            public function getExperiments(): array
-            {
-                return [
-                    'decisions' => new Experiment(
-                        name: 'decisions',
-                        enabled: $this->enabled,
-                        salt: 'decisions-v1',
-                        fallbackVariant: 'control',
-                        variants: ['control' => 50, 'green' => 50],
-                        targeting: new EnvironmentTargetingRule(environments: ['production']),
-                    ),
-                ];
-            }
-        };
-
-        return new AbTesting(provider: $provider, strategy: new WeightedHashAssignmentStrategy());
+        return new AbTesting(
+            provider: $this->providerOf([
+                'decisions' => new Experiment(
+                    name: 'decisions',
+                    enabled: $enabled,
+                    salt: 'decisions-v1',
+                    fallbackVariant: 'control',
+                    variants: ['control' => 50, 'green' => 50],
+                    targeting: new EnvironmentTargetingRule(environments: ['production']),
+                ),
+            ]),
+            strategy: new WeightedHashAssignmentStrategy(),
+        );
     }
 
     private function abTestingForDisabledExperiment(): AbTesting
@@ -616,31 +603,40 @@ final class AbTestingTest
     private function abTestingWithTargeting(
         TargetingRule $targeting,
     ): AbTesting {
-        $provider = new readonly class ($targeting) implements ExperimentProvider {
-            public function __construct(private TargetingRule $targeting) {}
-
-            #[\Override]
-            public function getExperiments(): array
-            {
-                return [
-                    'targeted' => new Experiment(
-                        name: 'targeted',
-                        enabled: true,
-                        salt: 'salt',
-                        fallbackVariant: 'control',
-                        variants: ['control' => 50, 'green' => 50],
-                        targeting: $this->targeting,
-                        configurationId: 'targeting-revision',
-                    ),
-                ];
-            }
-        };
-
         return new AbTesting(
-            provider: $provider,
+            provider: $this->providerOf([
+                'targeted' => new Experiment(
+                    name: 'targeted',
+                    enabled: true,
+                    salt: 'salt',
+                    fallbackVariant: 'control',
+                    variants: ['control' => 50, 'green' => 50],
+                    targeting: $targeting,
+                    configurationId: 'targeting-revision',
+                ),
+            ]),
             strategy: new WeightedHashAssignmentStrategy(),
             clock: new FixedClock(),
-            eventIds: new SequentialEventIdGenerator(),
+            eventIds: $this->sequentialEventIds('evt-1'),
         );
+    }
+
+    /**
+     * @param array<string, Experiment> $experiments
+     */
+    private function providerOf(array $experiments): ExperimentProvider
+    {
+        $provider = Understudy::for(ExperimentProvider::class);
+        when(fn() => $provider->getExperiments())->returns($experiments);
+
+        return $provider;
+    }
+
+    private function sequentialEventIds(string ...$ids): EventIdGenerator
+    {
+        $generator = Understudy::for(EventIdGenerator::class);
+        when(fn() => $generator->generate())->returns(...$ids);
+
+        return $generator;
     }
 }
