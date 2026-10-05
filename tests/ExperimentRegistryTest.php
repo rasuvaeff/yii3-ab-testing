@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3AbTesting\Tests;
 
+use Rasuvaeff\Understudy\Understudy;
 use Rasuvaeff\Yii3AbTesting\Exception\InvalidExperimentException;
 use Rasuvaeff\Yii3AbTesting\Experiment;
 use Rasuvaeff\Yii3AbTesting\ExperimentProvider;
@@ -13,6 +14,9 @@ use Testo\Codecov\Covers;
 use Testo\Expect;
 use Testo\Test;
 
+use function Rasuvaeff\Understudy\verify;
+use function Rasuvaeff\Understudy\when;
+
 #[Test]
 #[Covers(ExperimentRegistry::class)]
 #[Covers(InvalidExperimentException::class)]
@@ -21,24 +25,14 @@ final class ExperimentRegistryTest
     /** @param list<Experiment> $experiments */
     private function registryOf(array $experiments): ExperimentRegistry
     {
-        $provider = new readonly class ($experiments) implements ExperimentProvider {
-            /** @param list<Experiment> $experiments */
-            public function __construct(
-                private array $experiments,
-            ) {}
+        $indexed = [];
 
-            #[\Override]
-            public function getExperiments(): array
-            {
-                $result = [];
+        foreach ($experiments as $experiment) {
+            $indexed[$experiment->name] = $experiment;
+        }
 
-                foreach ($this->experiments as $experiment) {
-                    $result[$experiment->name] = $experiment;
-                }
-
-                return $result;
-            }
-        };
+        $provider = Understudy::for(ExperimentProvider::class);
+        when(fn() => $provider->getExperiments())->returns($indexed);
 
         return new ExperimentRegistry(provider: $provider);
     }
@@ -92,56 +86,49 @@ final class ExperimentRegistryTest
 
     public function providerIsNotQueriedUntilFirstAccess(): void
     {
-        $provider = $this->countingProvider();
+        $provider = $this->provider();
         new ExperimentRegistry(provider: $provider);
 
-        Assert::same($provider->calls, 0);
+        verify(fn() => $provider->getExperiments(), never: true);
     }
 
     public function providerIsQueriedOnceAcrossAccesses(): void
     {
-        $provider = $this->countingProvider();
+        $provider = $this->provider();
         $registry = new ExperimentRegistry(provider: $provider);
 
         $registry->all();
         $registry->has('test');
         $registry->get('test');
 
-        Assert::same($provider->calls, 1);
+        verify(fn() => $provider->getExperiments(), times: 1);
     }
 
     public function resetRereadsProvider(): void
     {
-        $provider = $this->countingProvider();
+        $provider = $this->provider();
         $registry = new ExperimentRegistry(provider: $provider);
 
         $registry->all();
         $registry->reset();
         $registry->all();
 
-        Assert::same($provider->calls, 2);
+        verify(fn() => $provider->getExperiments(), times: 2);
     }
 
-    private function countingProvider(): ExperimentProvider
+    private function provider(): ExperimentProvider
     {
-        return new class implements ExperimentProvider {
-            public int $calls = 0;
+        $provider = Understudy::for(ExperimentProvider::class);
+        when(fn() => $provider->getExperiments())->returns([
+            'test' => new Experiment(
+                name: 'test',
+                enabled: true,
+                salt: 'salt',
+                fallbackVariant: 'a',
+                variants: ['a' => 100],
+            ),
+        ]);
 
-            #[\Override]
-            public function getExperiments(): array
-            {
-                ++$this->calls;
-
-                return [
-                    'test' => new Experiment(
-                        name: 'test',
-                        enabled: true,
-                        salt: 'salt',
-                        fallbackVariant: 'a',
-                        variants: ['a' => 100],
-                    ),
-                ];
-            }
-        };
+        return $provider;
     }
 }
