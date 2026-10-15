@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Documentation
+
+- Add the family documentation site (`docs/`, VitePress, deployed to GitHub
+  Pages): guides for assignment, events, attribution, delivery, persistence and
+  analytics, every package's README and `llms.txt`, and an API reference
+  reflected from all five packages (#25).
+- Update `docs/integration.md`: namespace registration of `-db` migrations
+  works since `yiisoft/db-migration` 2.1, the ClickHouse schema is applied with
+  `SchemaMigrations`, and `yii3-ab-testing-outbox` 3.x joins the compatibility
+  table.
+
 ## 2.1.1 — 2026-09-02
 
 ### Fixed

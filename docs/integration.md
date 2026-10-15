@@ -1,7 +1,7 @@
 # Integration matrix
 
 Every package in the family has a good isolated example. What this document adds
-is the answer to *"how do I assemble **my** combination"* — the question that
+is the answer to *"how to assemble **your** combination"* — the question that
 sits between understanding the idea and running it in production.
 
 Read it once, pick one option per axis, and the rest follows.
@@ -15,7 +15,7 @@ Read it once, pick one option per axis, and the rest follows.
 | PHP config | core only | definitions change with a deploy anyway |
 | Database | `yii3-ab-testing-db` | you need a kill switch and reweights without a deploy |
 
-**Exactly one source may bind `ExperimentProvider`.** Installing the db backend
+**Exactly one source may bind `ExperimentProvider`.** Installing the db package
 *and* binding `ConfigExperimentProvider` in your app is a `yiisoft/config`
 `Duplicate key` error, by design — two sources of experiment truth is the bug,
 not the error message.
@@ -26,7 +26,7 @@ ExperimentProvider::class => static fn (): ExperimentProvider
     => new ConfigExperimentProvider($params['experiments']),
 ```
 
-With the db backend, bind nothing: the package owns the key.
+With the db package, bind nothing: the package owns the key.
 
 ---
 
@@ -125,21 +125,25 @@ The receipt must be signed (`SignedReceiptCodec`). Re-resolving server-side is
 not a substitute: after a reweight it returns the variant the visitor *would*
 get now, not the one they saw.
 
-Runnable: `vendor/rasuvaeff/yii3-ab-testing-web/examples/spa-endpoints.php`.
+Runnable: [`examples/spa-endpoints.php`](https://github.com/rasuvaeff/yii3-ab-testing-web/blob/master/examples/spa-endpoints.php) in `yii3-ab-testing-web`.
 
 ---
 
 ## Axis 7 — operations
 
-**Migrations.** The documented `setSourceNamespaces()` registration silently
-finds nothing while the core is installed — `migrate:up` prints "up-to-date",
-exits 0 and creates no tables. Apply them through `Injector`; see each `-db`
-package's `UPGRADE.md`.
+**Migrations.** Register the `-db` package's namespace through
+`setSourceNamespaces()`, as its README shows. This needs `yiisoft/db-migration`
+2.1 or later, which the package requires: before 2.1 the registration silently
+found nothing while the core was installed — `migrate:up` printed "up-to-date",
+exited 0 and created no tables.
+
+The ClickHouse tables are a separate, explicit step:
+`(new SchemaMigrations($client))->apply()` from `yii3-ab-testing-clickhouse`.
 
 **The worker** (durable path only) drains the outbox:
 `outbox:clickhouse:export`. Without it, events accumulate and nothing reaches
-analytics — the smoke test in the reference app asserts delivered row counts
-precisely because HTTP 200s prove nothing here.
+analytics — and every HTTP response is still 200, so assert delivered row
+counts, not status codes.
 
 **Retention** is opt-in SQL in `yii3-ab-testing-clickhouse/retention/`, never
 applied automatically.
@@ -167,7 +171,7 @@ Two non-negotiables:
 
 Attribution rules — the window, repeated conversions, exclusions — are fixed in
 the core (`AttributionWindow`, `RepeatedConversionPolicy`) so every reporting
-backend answers the same way.
+system answers the same way.
 
 ---
 
@@ -175,7 +179,7 @@ backend answers the same way.
 
 | core | web | db | outbox | clickhouse |
 |---|---|---|---|---|
-| 2.x | 2.x | 3.x | 2.x | 2.x |
+| 2.x | 2.x | 3.x | 2.x – 3.x | 2.x |
 | 1.6 | 1.2 | 2.1 | 1.3 | 1.2 |
 
 Mixing a 2.x core with 1.x adapters is prevented by Composer constraints. Each

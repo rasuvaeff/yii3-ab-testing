@@ -1,0 +1,25 @@
+# Domain vocabulary Vale's dictionary does not know.
+#
+# Entries are regular expressions, and an entry also teaches Vale.Terms the one
+# accepted casing — so common nouns carry a bracketed initial to stay valid at
+# the start of a sentence or heading (see property-testing-core's accept.txt).
+# Names with a fixed spelling (Swoole, ClickHouse) are written exactly.
+[Cc]lickhouse
+[Cc]odecs?
+[Cc]onfig
+[Dd]eduplicat(?:e|es|ed|ing|ion)
+[Dd]ocblocks?
+[Ff]lushable
+[Mm]emoiz(?:e|es|ed|ing)
+[Mm]iddleware
+[Nn]amespaces?
+[Pp]arams
+[Pp]refetch(?:es)?
+[Rr]eweight(?:s|ed|ing)?
+[Rr]untimes?
+Swoole
+[Tt]oolkit(?:'s)?
+[Uu]ndercount(?:s|ed)?
+[Uu]nflushed
+[Uu]ntrusted
+enums?

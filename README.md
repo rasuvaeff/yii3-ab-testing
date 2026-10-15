@@ -18,6 +18,9 @@ variants, forced variant for QA, explicit exposure/conversion tracking.
 > plugin also get this package's agent skill synced into `.agents/skills/`
 > automatically on install.
 
+> **Documentation site:** [rasuvaeff.github.io/yii3-ab-testing](https://rasuvaeff.github.io/yii3-ab-testing/)
+> covers the whole family — guides, every package's README and the API reference.
+
 > **Assembling a combination?** [docs/integration.md](docs/integration.md)
 > walks the eight axes — where definitions live, how events reach analytics,
 > who the subject is, stickiness, SSR vs SPA, operations, reading results.

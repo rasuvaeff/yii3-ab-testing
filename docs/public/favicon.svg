@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Yii3 A/B Testing">
+  <title>Yii3 A/B Testing</title>
+  <rect x="0" y="0" width="120" height="120" rx="30" fill="#0F766E"/>
+  <rect x="24" y="30" width="30" height="60" rx="8" fill="#FFFFFF"/>
+  <rect x="66" y="48" width="30" height="42" rx="8" fill="#FFFFFF" fill-opacity="0.65"/>
+  <path d="M60 22 V98" stroke="#FFFFFF" stroke-width="4" stroke-dasharray="6 6" stroke-linecap="round"/>
+</svg>
