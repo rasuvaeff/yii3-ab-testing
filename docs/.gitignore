@@ -1,0 +1,17 @@
+node_modules/
+.vitepress/dist/
+.vitepress/cache/
+
+# CI checks the four sibling packages out here (see .github/workflows/docs.yml);
+# locally the scripts fall back to the monorepo sibling directories.
+siblings/
+
+# Generated on every build from the packages' own README.md, llms.txt and
+# src/ — never edited by hand, so never committed (one source of truth).
+packages/
+llms/
+api/
+scripts/api-snapshot.json
+
+# Downloaded by `vale sync` from the Packages= line in ../.vale.ini.
+.vale/styles/Microsoft/

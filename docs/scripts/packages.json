@@ -1,0 +1,42 @@
+[
+    {
+        "slug": "core",
+        "dir": "yii3-ab-testing",
+        "name": "rasuvaeff/yii3-ab-testing",
+        "namespace": "Rasuvaeff\\Yii3AbTesting",
+        "title": "Core",
+        "summary": "Assignment, targeting, the event v2 contract, attribution rules and the PSR-3 sinks."
+    },
+    {
+        "slug": "db",
+        "dir": "yii3-ab-testing-db",
+        "name": "rasuvaeff/yii3-ab-testing-db",
+        "namespace": "Rasuvaeff\\Yii3AbTestingDb",
+        "title": "Database",
+        "summary": "Runtime-editable experiment definitions and a durable sticky assignment store on yiisoft/db."
+    },
+    {
+        "slug": "web",
+        "dir": "yii3-ab-testing-web",
+        "name": "rasuvaeff/yii3-ab-testing-web",
+        "namespace": "Rasuvaeff\\Yii3AbTestingWeb",
+        "title": "Web",
+        "summary": "Anonymous subject id middleware, signed-cookie sticky store and signed receipts for SPA flows."
+    },
+    {
+        "slug": "outbox",
+        "dir": "yii3-ab-testing-outbox",
+        "name": "rasuvaeff/yii3-ab-testing-outbox",
+        "namespace": "Rasuvaeff\\Yii3AbTestingOutbox",
+        "title": "Outbox",
+        "summary": "Durable delivery: exposure and conversion trackers that write to the transactional outbox."
+    },
+    {
+        "slug": "clickhouse",
+        "dir": "yii3-ab-testing-clickhouse",
+        "name": "rasuvaeff/yii3-ab-testing-clickhouse",
+        "namespace": "Rasuvaeff\\Yii3AbTestingClickHouse",
+        "title": "ClickHouse",
+        "summary": "Owns the schema v2 analytics tables (migrations and opt-in retention SQL) that both delivery paths write into."
+    }
+]

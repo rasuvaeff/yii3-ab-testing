@@ -1,0 +1,200 @@
+name: docs
+
+# The family documentation site (#25): one site for the five A/B testing
+# packages, hosted here. Package pages are the packages' own README.md and
+# llms.txt, and the API reference is reflected out of all five src/ trees at
+# build time — nothing on the site is a hand-kept copy.
+#
+# The four siblings are documented from their latest RELEASE tag, not their
+# default branch: a sibling's unreleased master must not appear on a site
+# readers install from Packagist. A sibling release changes what belongs here
+# without changing a file in this repository, so the weekly cron bounds the
+# lag and `workflow_dispatch` covers "I want it now".
+#
+# Pull requests build and check but never deploy.
+on:
+  pull_request:
+    paths: &paths
+      - 'docs/**'
+      - 'src/**'
+      - 'llms.txt'
+      - 'README.md'
+      - '.vale.ini'
+      - '.github/workflows/docs.yml'
+  push:
+    branches:
+      - master
+    paths: *paths
+  schedule:
+    - cron: '23 5 * * 1' # Mondays, 05:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Full history: the next step needs the tags to find the latest release.
+      - name: Checkout yii3-ab-testing-db
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rasuvaeff/yii3-ab-testing-db
+          path: docs/siblings/yii3-ab-testing-db
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout yii3-ab-testing-web
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rasuvaeff/yii3-ab-testing-web
+          path: docs/siblings/yii3-ab-testing-web
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout yii3-ab-testing-outbox
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rasuvaeff/yii3-ab-testing-outbox
+          path: docs/siblings/yii3-ab-testing-outbox
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout yii3-ab-testing-clickhouse
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rasuvaeff/yii3-ab-testing-clickhouse
+          path: docs/siblings/yii3-ab-testing-clickhouse
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Switch siblings to their latest release
+        run: |
+          for dir in docs/siblings/*/; do
+            tag=$(git -C "$dir" describe --tags --abbrev=0)
+            git -C "$dir" -c advice.detachedHead=false checkout --quiet "$tag"
+            echo "$(basename "$dir"): $tag"
+          done
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          extensions: json, mbstring
+          tools: composer:v2
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.composer/cache
+          key: composer-docs-${{ runner.os }}-${{ hashFiles('**/composer.json') }}
+          restore-keys: composer-docs-${{ runner.os }}-
+
+      # Every package needs its own vendor/: reflect-api.php requires each
+      # autoloader for that package's third-party dependencies.
+      - name: Install PHP dependencies
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          for dir in docs/siblings/*/; do
+            composer install --no-interaction --no-progress --prefer-dist --working-dir="$dir"
+          done
+
+      - name: Reflect the API of all five packages
+        run: php docs/scripts/reflect-api.php > docs/scripts/api-snapshot.json
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build docs (aggregate + API pages + integrity check + VitePress build + anchor check)
+        working-directory: docs
+        run: npm run docs:build
+
+      # Skipped on pull requests: `deploy` is skipped there too, and both steps
+      # call the Pages API, which does not exist until Pages is switched on.
+      - name: Setup Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/.vitepress/dist
+
+  prose:
+    name: Prose
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A pinned, checksum-verified binary rather than a third-party action: the
+      # action wants a token and `pull-requests: write` for its annotations.
+      - name: Install Vale
+        env:
+          VALE_VERSION: 3.9.1
+          VALE_SHA256: fbc2eb47d0b8c50220ed1a2c5c611fbe0904ed567d638143d482016a18fd2db0
+        run: |
+          curl -fsSL -o vale.tar.gz \
+            "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  vale.tar.gz" | sha256sum --check --strict
+          tar -xzf vale.tar.gz vale
+          sudo install -m 0755 vale /usr/local/bin/vale
+          rm vale vale.tar.gz
+
+      - name: Sync Vale styles
+        run: vale sync
+
+      # Hand-written pages only: packages/, llms/ and api/ are generated from
+      # other files, and their prose is linted (or not) where it is written.
+      - name: Lint prose
+        run: |
+          vale --output=JSON docs/index.md docs/guide docs/integration.md > vale.json || true
+          jq -r 'to_entries[] | .key as $file | .value[]
+                 | "::error file=\($file),line=\(.Line),col=\(.Span[0])::\(.Check): \(.Message)"' vale.json
+          found=$(jq 'to_entries | map(.value | length) | add // 0' vale.json)
+          echo "Vale findings: $found"
+          test "$found" -eq 0
+
+  deploy:
+    name: Deploy
+    needs: [build, prose]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pages: write # publish the built site to GitHub Pages
+      id-token: write # required by actions/deploy-pages for OIDC Pages deployment
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

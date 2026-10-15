@@ -190,6 +190,27 @@ one dimension. Do not collapse that test back to a single-key array.
 - `examples/` is part of the public contract: keep scripts runnable and update
   `examples/README.md` when example usage changes.
 
+## Documentation site
+
+`docs/` is the VitePress site for the **whole family** (#25), deployed to
+GitHub Pages by `.github/workflows/docs.yml`; EN-only.
+
+- `docs/scripts/packages.json` is the one package list — the aggregator, the
+  API generator, `reflect-api.php`, the integrity check and the sidebar all
+  read it. A new family package is one entry there plus a checkout step in
+  `docs.yml`.
+- `packages/`, `llms/`, `api/` and `scripts/api-snapshot.json` are generated
+  on every build from the packages' own `README.md`, `llms.txt` and `src/`, and
+  gitignored. Fix content in the source package, never in the generated page.
+- Hand-written pages: `docs/index.md`, `docs/guide/`, `docs/integration.md`.
+  Vale lints exactly these (`make docs-vale`, zero findings); new domain words
+  go to `docs/.vale/styles/config/vocabularies/AbTesting/accept.txt`.
+- CI documents the siblings from their latest release tag; locally
+  `make docs-build` reads the monorepo sibling directories, each of which needs
+  its own `vendor/`.
+- `docs/integration.md` is rendered on the site **and** read on GitHub next to
+  `integration.ru.md` — edit both together, as with the READMEs.
+
 ## When you finish
 
 - Update `README.md` and `README.ru.md` together (and `examples/` if usage
