@@ -104,12 +104,14 @@ jobs:
           restore-keys: composer-docs-${{ runner.os }}-
 
       # Every package needs its own vendor/: reflect-api.php requires each
-      # autoloader for that package's third-party dependencies.
+      # autoloader for that package's third-party dependencies. Runtime
+      # dependencies are enough to reflect src/; skipping the dev tree cuts
+      # the downloads roughly in half.
       - name: Install PHP dependencies
         run: |
-          composer install --no-interaction --no-progress --prefer-dist
+          composer install --no-dev --no-interaction --no-progress --prefer-dist
           for dir in docs/siblings/*/; do
-            composer install --no-interaction --no-progress --prefer-dist --working-dir="$dir"
+            composer install --no-dev --no-interaction --no-progress --prefer-dist --working-dir="$dir"
           done
 
       - name: Reflect the API of all five packages

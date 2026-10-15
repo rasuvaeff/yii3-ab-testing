@@ -1,7 +1,7 @@
 # Integration matrix
 
 Every package in the family has a good isolated example. What this document adds
-is the answer to *"how to assemble **this** combination"* — the question that
+is the answer to *"how to assemble **your** combination"* — the question that
 sits between understanding the idea and running it in production.
 
 Read it once, pick one option per axis, and the rest follows.
@@ -125,7 +125,7 @@ The receipt must be signed (`SignedReceiptCodec`). Re-resolving server-side is
 not a substitute: after a reweight it returns the variant the visitor *would*
 get now, not the one they saw.
 
-Runnable: `vendor/rasuvaeff/yii3-ab-testing-web/examples/spa-endpoints.php`.
+Runnable: [`examples/spa-endpoints.php`](https://github.com/rasuvaeff/yii3-ab-testing-web/blob/master/examples/spa-endpoints.php) in `yii3-ab-testing-web`.
 
 ---
 

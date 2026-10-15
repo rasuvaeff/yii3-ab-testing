@@ -28,8 +28,10 @@ function collectMarkdownFiles(dir) {
 
 function distPathFor(pagePath) {
     // pagePath is absolute, e.g. /api/index or /security (cleanUrls, no .md)
-    const withoutLeadingSlash = pagePath.replace(/^\//, '')
-    const candidate = withoutLeadingSlash === '' ? 'index' : withoutLeadingSlash
+    // '/api/' is the directory index: without the trailing-slash case it maps
+    // to 'api/.html', the read fails, and every '/api/#…' link goes unchecked.
+    const withoutLeadingSlash = pagePath.replace(/^\//, '').replace(/(^|\/)$/, '$1index')
+    const candidate = withoutLeadingSlash
     return join(distDir, candidate + '.html')
 }
 

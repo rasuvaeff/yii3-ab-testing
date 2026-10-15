@@ -128,7 +128,8 @@ Receipt обязан быть подписан (`SignedReceiptCodec`). Пере�
 сейчас**, а не тот, который видел.
 
 Исполняемый пример:
-`vendor/rasuvaeff/yii3-ab-testing-web/examples/spa-endpoints.php`.
+[`examples/spa-endpoints.php`](https://github.com/rasuvaeff/yii3-ab-testing-web/blob/master/examples/spa-endpoints.php)
+в `yii3-ab-testing-web`.
 
 ---
 
