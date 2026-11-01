@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Tests
+
+- Mutation testing now counts uncovered code (`--with-uncovered`, template mutator settings): overall MSI 99% against `minMsi` 99; added a `TargetingRuleCodecRegistry::encode()` test for a rule without a registered codec. No src changes.
+
 ### Documentation
 
 - Add the family documentation site (`docs/`, VitePress, deployed to GitHub

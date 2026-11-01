@@ -101,7 +101,7 @@ make release-check
 
 `minMsi` is **99, not 100, and there are no ignored mutators** — the threshold is
 honest rather than propped up by suppressions. Exactly three mutants survive out
-of 364 generated, and all three are equivalent under PHP semantics, so no test
+of 381 generated (with `--with-uncovered`, which counts code the tests execute but do not name in `#[Covers]`), and all three are equivalent under PHP semantics, so no test
 can kill them:
 
 | Where | Mutation | Why it cannot be killed |

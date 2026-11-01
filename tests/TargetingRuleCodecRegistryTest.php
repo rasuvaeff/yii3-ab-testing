@@ -173,6 +173,22 @@ final class TargetingRuleCodecRegistryTest
         (new TargetingRuleCodecRegistry())->decode(['type' => 'missing']);
     }
 
+    public function rejectsEncodingARuleWithoutRegisteredCodec(): void
+    {
+        $rule = new class implements TargetingRule {
+            #[\Override]
+            public function matches(AssignmentContext $context): bool
+            {
+                return true;
+            }
+        };
+
+        Expect::exception(\InvalidArgumentException::class)
+            ->withMessage(sprintf('No targeting rule codec registered for "%s"', $rule::class));
+
+        (new TargetingRuleCodecRegistry())->encode($rule);
+    }
+
     public function rejectsListInsteadOfObject(): void
     {
         Expect::exception(\InvalidArgumentException::class)
