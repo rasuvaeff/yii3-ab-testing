@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Documentation
+
+- README: the `DeduplicatingExposureTracker` example passes an `ExposureEvent`, as `trackExposure()` requires, instead of an `Assignment` (#43).
+
 ### Tests
 
 - Mutation testing now counts uncovered code (`--with-uncovered`, template mutator settings): overall MSI 99% against `minMsi` 99; added a `TargetingRuleCodecRegistry::encode()` test for a rule without a registered codec. No src changes.

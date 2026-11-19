@@ -407,8 +407,8 @@ flushable inner sink. `assign()` remains side-effect free.
 use Rasuvaeff\Yii3AbTesting\DeduplicatingExposureTracker;
 
 $tracker = new DeduplicatingExposureTracker(tracker: $realExposureTracker);
-$tracker->trackExposure($assignment);
-$tracker->trackExposure($assignment); // suppressed in this request
+$tracker->trackExposure($event);
+$tracker->trackExposure($event); // suppressed in this request
 ```
 
 ### Targeting (optional)
