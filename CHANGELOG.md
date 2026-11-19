@@ -4,7 +4,7 @@
 
 ### Documentation
 
-- README: the `DeduplicatingExposureTracker` example passes an `ExposureEvent`, as `trackExposure()` requires, instead of an `Assignment` (#43).
+- README: the `DeduplicatingExposureTracker` example called `trackExposure()` with an `Assignment`, which the wrapper does not accept; it now wraps the sink passed to `AbTesting` and tracks the same assignment twice (#43).
 
 ### Tests
 
