@@ -414,11 +414,17 @@ request-scoped либо вызывайте `reset()` на границе зап�
 побочных эффектов.
 
 ```php
+use Rasuvaeff\Yii3AbTesting\AbTesting;
 use Rasuvaeff\Yii3AbTesting\DeduplicatingExposureTracker;
 
-$tracker = new DeduplicatingExposureTracker(tracker: $realExposureTracker);
-$tracker->trackExposure($assignment);
-$tracker->trackExposure($assignment); // suppressed in this request
+$ab = new AbTesting(
+    provider: $provider,
+    strategy: $strategy,
+    exposureTracker: new DeduplicatingExposureTracker(tracker: $realExposureTracker),
+);
+
+$ab->trackExposure($assignment);
+$ab->trackExposure($assignment); // same experiment, subject and revision: not forwarded again
 ```
 
 ### Таргетинг (необязательно)

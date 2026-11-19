@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Documentation
+
+- README: the `DeduplicatingExposureTracker` example called `trackExposure()` with an `Assignment`, which the wrapper does not accept; it now wraps the sink passed to `AbTesting` and tracks the same assignment twice (#43).
+
 ### Tests
 
 - Mutation testing now counts uncovered code (`--with-uncovered`, template mutator settings): overall MSI 99% against `minMsi` 99; added a `TargetingRuleCodecRegistry::encode()` test for a rule without a registered codec. No src changes.
