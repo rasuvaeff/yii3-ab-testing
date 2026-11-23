@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Enhancement
+
+- Enh #45: Add PHP 8.6 support. The `php` constraint is widened to `8.3 - 8.6`; CI runs PHP 8.6 as a regular matrix entry, and the backward-compatibility job moves to PHP 8.5.
+
 ### Documentation
 
 - README: the `DeduplicatingExposureTracker` example called `trackExposure()` with an `Assignment`, which the wrapper does not accept; it now wraps the sink passed to `AbTesting` and tracks the same assignment twice (#43).

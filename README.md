@@ -27,7 +27,7 @@ variants, forced variant for QA, explicit exposure/conversion tracking.
 
 ## Requirements
 
-- PHP 8.3+ (64-bit — the hash bucket exceeds `PHP_INT_MAX` on 32-bit builds)
+- PHP 8.3 – 8.6 (64-bit — the hash bucket exceeds `PHP_INT_MAX` on 32-bit builds)
 
 ## Installation
 
